@@ -11,3 +11,424 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  student
+  admin
+}
+
+enum UserStatus {
+  active
+  suspended
+}
+
+enum Mode {
+  online
+  in_person
+}
+
+enum GroupStatus {
+  active
+  closed
+  archived
+  removed
+}
+
+enum GroupMemberRole {
+  leader
+  member
+}
+
+enum GroupMemberStatus {
+  active
+  left
+  removed
+}
+
+enum JoinRequestStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum SessionStatus {
+  scheduled
+  completed
+  cancelled
+}
+
+enum ReportTargetType {
+  user
+  group
+  message
+  file
+  post
+}
+
+enum ReportStatus {
+  open
+  resolved
+  dismissed
+}
+
+// ==========================================
+// 1. USERS & AUTHENTICATION
+// ==========================================
+
+model User {
+  id              Int        @id @default(autoincrement())
+  name            String     @db.VarChar(100)
+  email           String     @unique @db.VarChar(255)
+  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(6)
+  passwordHash    String     @map("password_hash") @db.VarChar(255)
+  role            Role       @default(student)
+  status          UserStatus @default(active)
+  department      String?    @db.VarChar(100)
+  academicYear    Int?       @map("academic_year") @db.SmallInt
+  bio             String?    @db.VarChar(500)
+  institutionId   Int?       @map("institution_id") // Reserved for future
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  // Relations
+  refreshTokens      RefreshToken[]
+  userSubjects       UserSubject[]
+  ledGroups          Group[]             @relation("GroupLeader")
+  memberships        GroupMember[]
+  removedMembers     GroupMember[]       @relation("RemovedBy")
+  joinRequests       JoinRequest[]       @relation("StudentRequests")
+  reviewedRequests   JoinRequest[]       @relation("ReviewedBy")
+  createdSessions    StudySession[]      @relation("SessionCreator")
+  sessionAttendances SessionAttendance[]
+  reviews            Review[]
+  messages           Message[]
+  groupPosts         GroupPost[]         @relation("PostAuthor")
+  uploadedFiles      GroupFile[]         @relation("FileUploader")
+  notifications      Notification[]
+  reportsMade        Report[]            @relation("ReportedBy")
+  reportsResolved    Report[]            @relation("ResolvedBy")
+  adminActions       AdminAction[]       @relation("AdminActionUser")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  tokenHash String    @unique @map("token_hash") @db.VarChar(255)
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz(6)
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+// ==========================================
+// 2. SUBJECTS & LEVELS
+// ==========================================
+
+model Subject {
+  id         Int      @id @default(autoincrement())
+  name       String   @unique @db.VarChar(150)
+  category   String?  @db.VarChar(100)
+  courseCode String?  @map("course_code") @db.VarChar(20)
+  isActive   Boolean  @default(true) @map("is_active")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  groups       Group[]
+  userSubjects UserSubject[]
+
+  @@map("subjects")
+}
+
+model Level {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(50)
+  description String   @db.VarChar(255)
+  sortOrder   Int      @default(0) @map("sort_order") @db.SmallInt
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  groups Group[]
+
+  @@map("levels")
+}
+
+model UserSubject {
+  userId    Int      @map("user_id")
+  subjectId Int      @map("subject_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+
+  @@id([userId, subjectId])
+  @@map("user_subjects")
+}
+
+// ==========================================
+// 3. GROUPS & MEMBERSHIP
+// ==========================================
+
+model Group {
+  id             Int         @id @default(autoincrement())
+  subjectId      Int         @map("subject_id")
+  levelId        Int?        @map("level_id")
+  leaderId       Int         @map("leader_id")
+  institutionId  Int?        @map("institution_id") // Reserved
+  title          String      @db.VarChar(150)
+  topic          String?     @db.VarChar(255)
+  description    String
+  examDate       DateTime?   @map("exam_date") @db.Date
+  mode           Mode
+  location       String?     @db.VarChar(255)
+  maxSize        Int         @map("max_size") @db.SmallInt
+  status         GroupStatus @default(active)
+  isFlagged      Boolean     @default(false) @map("is_flagged")
+  membersCanPost Boolean     @default(false) @map("members_can_post")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(6)
+
+  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  level         Level?         @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  leader        User           @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: Restrict)
+  members       GroupMember[]
+  joinRequests  JoinRequest[]
+  studySessions StudySession[]
+  messages      Message[]
+  groupPosts    GroupPost[]
+  groupFiles    GroupFile[]
+
+  @@index([status, examDate])
+  @@index([subjectId])
+  @@index([levelId])
+  @@index([mode])
+  @@map("groups")
+}
+
+model GroupMember {
+  id        Int               @id @default(autoincrement())
+  groupId   Int               @map("group_id")
+  userId    Int               @map("user_id")
+  role      GroupMemberRole   @default(member)
+  status    GroupMemberStatus @default(active)
+  joinedAt  DateTime          @default(now()) @map("joined_at") @db.Timestamptz(6)
+  leftAt    DateTime?         @map("left_at") @db.Timestamptz(6)
+  removedBy Int?              @map("removed_by")
+
+  group   Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  user    User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  remover User? @relation("RemovedBy", fields: [removedBy], references: [id], onDelete: Restrict)
+
+  @@unique([groupId, userId])
+  @@index([userId])
+  @@map("group_members")
+}
+
+model JoinRequest {
+  id         Int               @id @default(autoincrement())
+  groupId    Int               @map("group_id")
+  userId     Int               @map("user_id")
+  message    String?           @db.VarChar(500)
+  status     JoinRequestStatus @default(pending)
+  reviewedBy Int?              @map("reviewed_by")
+  reviewNote String?           @map("review_note") @db.VarChar(500)
+  reviewedAt DateTime?         @map("reviewed_at") @db.Timestamptz(6)
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  group    Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  user     User  @relation("StudentRequests", fields: [userId], references: [id], onDelete: Restrict)
+  reviewer User? @relation("ReviewedBy", fields: [reviewedBy], references: [id], onDelete: Restrict)
+
+  @@index([groupId, status])
+  @@index([userId])
+  @@map("join_requests")
+}
+
+// ==========================================
+// 4. STUDY SESSIONS & REVIEWS
+// ==========================================
+
+model StudySession {
+  id              Int           @id @default(autoincrement())
+  groupId         Int           @map("group_id")
+  createdBy       Int           @map("created_by")
+  title           String        @db.VarChar(150)
+  topic           String?       @db.VarChar(255)
+  description     String?
+  scheduledAt     DateTime      @map("scheduled_at") @db.Timestamptz(6)
+  durationMinutes Int?          @map("duration_minutes") @db.SmallInt
+  mode            Mode
+  location        String?       @db.VarChar(255)
+  meetingLink     String?       @map("meeting_link") @db.VarChar(500)
+  status          SessionStatus @default(scheduled)
+  cancelReason    String?       @map("cancel_reason") @db.VarChar(255)
+  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  group       Group               @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  creator     User                @relation("SessionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  attendances SessionAttendance[]
+  reviews     Review[]
+
+  @@index([groupId, scheduledAt])
+  @@map("study_sessions")
+}
+
+model SessionAttendance {
+  id        Int      @id @default(autoincrement())
+  sessionId Int      @map("session_id")
+  userId    Int      @map("user_id")
+  attended  Boolean?
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  session StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, userId])
+  @@map("session_attendance")
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  sessionId Int      @map("session_id")
+  userId    Int      @map("user_id")
+  rating    Int      @db.SmallInt
+  comment   String?  @db.VarChar(500)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  session StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([sessionId, userId])
+  @@map("reviews")
+}
+
+// ==========================================
+// 5. GROUP SPACE: CHAT, POSTS & FILES
+// ==========================================
+
+model Message {
+  id        BigInt    @id @default(autoincrement())
+  groupId   Int       @map("group_id")
+  userId    Int       @map("user_id")
+  body      String
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([groupId, id])
+  @@map("messages")
+}
+
+model GroupPost {
+  id        Int       @id @default(autoincrement())
+  groupId   Int       @map("group_id")
+  authorId  Int       @map("author_id")
+  title     String?   @db.VarChar(150)
+  body      String
+  isPinned  Boolean   @default(false) @map("is_pinned")
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  group  Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  author User  @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([groupId, isPinned, createdAt])
+  @@map("group_posts")
+}
+
+model GroupFile {
+  id           Int       @id @default(autoincrement())
+  groupId      Int       @map("group_id")
+  uploadedBy   Int       @map("uploaded_by")
+  title        String    @db.VarChar(150)
+  description  String?   @db.VarChar(500)
+  originalName String    @map("original_name") @db.VarChar(255)
+  storedName   String    @unique @map("stored_name") @db.VarChar(255)
+  mimeType     String    @map("mime_type") @db.VarChar(100)
+  sizeBytes    Int       @map("size_bytes")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
+
+  group    Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  uploader User  @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+
+  @@map("group_files")
+}
+
+// ==========================================
+// 6. NOTIFICATIONS
+// ==========================================
+
+model Notification {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @map("user_id")
+  type      String    @db.VarChar(50)
+  payload   Json
+  readAt    DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+// ==========================================
+// 7. MODERATION & ADMIN
+// ==========================================
+
+model Report {
+  id             Int              @id @default(autoincrement())
+  reportedBy     Int              @map("reported_by")
+  targetType     ReportTargetType @map("target_type")
+  targetId       BigInt           @map("target_id")
+  reason         String           @db.VarChar(100)
+  details        String?
+  status         ReportStatus     @default(open)
+  resolvedBy     Int?             @map("resolved_by")
+  resolutionNote String?          @map("resolution_note") @db.VarChar(500)
+  resolvedAt     DateTime?        @map("resolved_at") @db.Timestamptz(6)
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  reporter User  @relation("ReportedBy", fields: [reportedBy], references: [id], onDelete: Restrict)
+  resolver User? @relation("ResolvedBy", fields: [resolvedBy], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([targetType, targetId])
+  @@map("reports")
+}
+
+model AdminAction {
+  id         Int      @id @default(autoincrement())
+  adminId    Int      @map("admin_id")
+  action     String   @db.VarChar(100)
+  targetType String   @map("target_type") @db.VarChar(50)
+  targetId   BigInt   @map("target_id")
+  details    Json?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  admin User @relation("AdminActionUser", fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([adminId, createdAt])
+  @@map("admin_actions")
+}
