@@ -8,7 +8,7 @@ This document shows every table planned for the **MVP (first 3 months)** of the 
 
 **How to read this document:** Each table lists its columns, the data type used to store the value, and a plain-language note on what the column is for. In the Type column, **PK** means primary key (the column that uniquely identifies each row). **FK** means foreign key (a column that points to a row in another table). Types are written in PostgreSQL style. Enums (a fixed list of allowed words) are written like `enum('a','b')`.
 
-**Written:** 30 October 2026. **Revised:** 5 November 2026 (this is now version 2, matching the file name; week 1 decisions recorded: integer IDs, the leader marks sessions completed, no email verification in the MVP, and review visibility rules). Earlier revision on 30 October 2026: group posts replace announcements, and a group setting decides who can post. **Scope:** MVP only, with real-time group chat included. Features planned for later are listed in Section 10, and they are not in these tables yet.
+**Written:** 30 October 2026. **Revised:** 5 November 2026 (week 1 decisions recorded: integer IDs, the leader marks sessions completed, no email verification in the MVP, and review visibility rules). Earlier revision on 30 October 2026: group posts replace announcements, and a group setting decides who can post. **Scope:** MVP only, with real-time group chat included. Features planned for later are listed in Section 10, and they are not in these tables yet.
 
 ## Contents
 
