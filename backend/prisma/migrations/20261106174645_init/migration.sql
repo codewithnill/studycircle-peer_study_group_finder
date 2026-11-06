@@ -431,3 +431,38 @@ ALTER TABLE "reports" ADD CONSTRAINT "reports_resolved_by_fkey" FOREIGN KEY ("re
 
 -- AddForeignKey
 ALTER TABLE "admin_actions" ADD CONSTRAINT "admin_actions_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- One pending join request per student per group.
+CREATE UNIQUE INDEX "join_requests_one_pending_per_user_group"
+ON "join_requests" ("group_id", "user_id")
+WHERE "status" = 'pending';
+
+-- Exactly one active leader per group.
+CREATE UNIQUE INDEX "group_members_one_active_leader_per_group"
+ON "group_members" ("group_id")
+WHERE "role" = 'leader' AND "status" = 'active';
