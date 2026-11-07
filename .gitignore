@@ -94,3 +94,16 @@ $RECYCLE.BIN/
 #   uploads/        (private files)
 # If any of these show up as untracked, STOP and tell the Team Lead.
 # ============================================================
+
+
+
+
+
+
+/documentation/claude_setup
+/documentation/deepseek_prompt
+/documentation/git
+/documentation/postgres
+
+
+backend/src/generated/

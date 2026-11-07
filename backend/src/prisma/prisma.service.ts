@@ -2,7 +2,7 @@ import { Injectable, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 // We import the PostgreSQL adapter. Prisma 7 requires this to actually talk to the database.
 import { PrismaPg } from '@prisma/adapter-pg';
 // We import the standard PrismaClient from the node_modules folder.
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../generated/prisma/client';
 
 // @Injectable() tells NestJS that this class can be injected into other parts of the app.
 @Injectable()
