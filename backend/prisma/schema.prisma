@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -15,21 +10,25 @@ datasource db {
 // ENUMS
 // ==========================================
 
+// Defines if the user is a normal student or a platform admin.
 enum Role {
   student
   admin
 }
 
+// Tracks if an account is active or suspended by an admin.
 enum UserStatus {
   active
   suspended
 }
 
+// Used for groups and sessions to say if they are online or in-person.
 enum Mode {
   online
   in_person
 }
 
+// The lifecycle of a study group (active, closed, etc.).
 enum GroupStatus {
   active
   closed
@@ -37,17 +36,20 @@ enum GroupStatus {
   removed
 }
 
+// Defines if a member is the leader of this specific group.
 enum GroupMemberRole {
   leader
   member
 }
 
+// Tracks if a member is active, left, or removed.
 enum GroupMemberStatus {
   active
   left
   removed
 }
 
+// Tracks the stage of a student asking to join a group.
 enum JoinRequestStatus {
   pending
   approved
@@ -55,12 +57,14 @@ enum JoinRequestStatus {
   cancelled
 }
 
+// Tracks if a study session is scheduled, completed, or cancelled.
 enum SessionStatus {
   scheduled
   completed
   cancelled
 }
 
+// Tells the system what kind of item is being reported.
 enum ReportTargetType {
   user
   group
@@ -69,6 +73,7 @@ enum ReportTargetType {
   post
 }
 
+// Tracks if an admin has handled a report yet.
 enum ReportStatus {
   open
   resolved
@@ -76,47 +81,50 @@ enum ReportStatus {
 }
 
 // ==========================================
-// 1. USERS & AUTHENTICATION
+// MODELS
 // ==========================================
 
+// Stores every person who has an account (both students and admins).
 model User {
-  id              Int        @id @default(autoincrement())
-  name            String     @db.VarChar(100)
-  email           String     @unique @db.VarChar(255)
-  emailVerifiedAt DateTime?  @map("email_verified_at") @db.Timestamptz(6)
-  passwordHash    String     @map("password_hash") @db.VarChar(255)
-  role            Role       @default(student)
-  status          UserStatus @default(active)
-  department      String?    @db.VarChar(100)
-  academicYear    Int?       @map("academic_year") @db.SmallInt
-  bio             String?    @db.VarChar(500)
-  institutionId   Int?       @map("institution_id") // Reserved for future
-  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  id                Int       @id @default(autoincrement())
+  name              String    @db.VarChar(100)
+  /// SAFETY: Used for login. Must never be exposed in public API responses.
+  email             String    @unique @db.VarChar(255)
+  emailVerifiedAt   DateTime? @map("email_verified_at") @db.Timestamptz(6)
+  /// SAFETY: This stores the scrambled (bcrypt) password. Never store plain text here.
+  passwordHash      String    @map("password_hash") @db.VarChar(255)
+  role              Role      @default(student)
+  status            UserStatus @default(active)
+  department        String?   @db.VarChar(100)
+  academicYear      Int?      @map("academic_year") @db.SmallInt
+  bio               String?   @db.VarChar(500)
+  institutionId     Int?      @map("institution_id")
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt         DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  // Relations
-  refreshTokens      RefreshToken[]
-  userSubjects       UserSubject[]
-  ledGroups          Group[]             @relation("GroupLeader")
-  memberships        GroupMember[]
-  removedMembers     GroupMember[]       @relation("RemovedBy")
-  joinRequests       JoinRequest[]       @relation("StudentRequests")
-  reviewedRequests   JoinRequest[]       @relation("ReviewedBy")
-  createdSessions    StudySession[]      @relation("SessionCreator")
+  refreshTokens     RefreshToken[]
+  userSubjects      UserSubject[]
+  ledGroups         Group[]           @relation("GroupLeader")
+  memberships       GroupMember[]
+  removedMembers    GroupMember[]     @relation("RemovedBy")
+  joinRequests      JoinRequest[]     @relation("StudentRequests")
+  reviewedRequests  JoinRequest[]     @relation("ReviewedBy")
+  createdSessions   StudySession[]    @relation("SessionCreator")
   sessionAttendances SessionAttendance[]
-  reviews            Review[]
-  messages           Message[]
-  groupPosts         GroupPost[]         @relation("PostAuthor")
-  uploadedFiles      GroupFile[]         @relation("FileUploader")
-  notifications      Notification[]
-  reportsMade        Report[]            @relation("ReportedBy")
-  reportsResolved    Report[]            @relation("ResolvedBy")
-  adminActions       AdminAction[]       @relation("AdminActionUser")
+  reviews           Review[]
+  messages          Message[]
+  groupPosts        GroupPost[]       @relation("PostAuthor")
+  uploadedFiles     GroupFile[]       @relation("FileUploader")
+  notifications     Notification[]
+  reportsMade       Report[]          @relation("ReportedBy")
+  reportsResolved   Report[]          @relation("ResolvedBy")
+  adminActions      AdminAction[]     @relation("AdminActionUser")
 
   @@map("users")
 }
 
+// Used to keep users logged in securely over a longer period.
 model RefreshToken {
   id        Int       @id @default(autoincrement())
   userId    Int       @map("user_id")
@@ -130,25 +138,23 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-// ==========================================
-// 2. SUBJECTS & LEVELS
-// ==========================================
-
+// The topics students study (e.g., Data Structures).
 model Subject {
-  id         Int      @id @default(autoincrement())
-  name       String   @unique @db.VarChar(150)
-  category   String?  @db.VarChar(100)
-  courseCode String?  @map("course_code") @db.VarChar(20)
-  isActive   Boolean  @default(true) @map("is_active")
-  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id          Int      @id @default(autoincrement())
+  name        String   @unique @db.VarChar(150)
+  category    String?  @db.VarChar(100)
+  courseCode  String?  @map("course_code") @db.VarChar(20)
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  groups       Group[]
+  groups      Group[]
   userSubjects UserSubject[]
 
   @@map("subjects")
 }
 
+// Skill levels used for groups (e.g., Beginner, Advanced).
 model Level {
   id          Int      @id @default(autoincrement())
   name        String   @unique @db.VarChar(50)
@@ -158,56 +164,54 @@ model Level {
   createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  groups Group[]
+  groups      Group[]
 
   @@map("levels")
 }
 
+// Links a student to the subjects they are interested in.
 model UserSubject {
   userId    Int      @map("user_id")
   subjectId Int      @map("subject_id")
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subject   Subject  @relation(fields: [subjectId], references: [id], onDelete: Restrict)
 
   @@id([userId, subjectId])
   @@map("user_subjects")
 }
 
-// ==========================================
-// 3. GROUPS & MEMBERSHIP
-// ==========================================
-
+// The main study group record. Holds details people search for.
 model Group {
-  id             Int         @id @default(autoincrement())
-  subjectId      Int         @map("subject_id")
-  levelId        Int?        @map("level_id")
-  leaderId       Int         @map("leader_id")
-  institutionId  Int?        @map("institution_id") // Reserved
-  title          String      @db.VarChar(150)
-  topic          String?     @db.VarChar(255)
+  id             Int          @id @default(autoincrement())
+  subjectId      Int          @map("subject_id")
+  levelId        Int?         @map("level_id")
+  leaderId       Int          @map("leader_id")
+  institutionId  Int?         @map("institution_id")
+  title          String       @db.VarChar(150)
+  topic          String?      @db.VarChar(255)
   description    String
-  examDate       DateTime?   @map("exam_date") @db.Date
+  examDate       DateTime?    @map("exam_date") @db.Date
   mode           Mode
-  location       String?     @db.VarChar(255)
-  maxSize        Int         @map("max_size") @db.SmallInt
-  status         GroupStatus @default(active)
-  isFlagged      Boolean     @default(false) @map("is_flagged")
-  membersCanPost Boolean     @default(false) @map("members_can_post")
-  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt      DateTime?   @map("deleted_at") @db.Timestamptz(6)
+  location       String?      @db.VarChar(255)
+  maxSize        Int          @map("max_size") @db.SmallInt
+  status         GroupStatus  @default(active)
+  isFlagged      Boolean      @default(false) @map("is_flagged")
+  membersCanPost Boolean      @default(false) @map("members_can_post")
+  createdAt      DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt      DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt      DateTime?    @map("deleted_at") @db.Timestamptz(6)
 
-  subject       Subject        @relation(fields: [subjectId], references: [id], onDelete: Restrict)
-  level         Level?         @relation(fields: [levelId], references: [id], onDelete: Restrict)
-  leader        User           @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: Restrict)
-  members       GroupMember[]
-  joinRequests  JoinRequest[]
-  studySessions StudySession[]
-  messages      Message[]
-  groupPosts    GroupPost[]
-  groupFiles    GroupFile[]
+  subject        Subject      @relation(fields: [subjectId], references: [id], onDelete: Restrict)
+  level          Level?       @relation(fields: [levelId], references: [id], onDelete: Restrict)
+  leader         User         @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: Restrict)
+  members        GroupMember[]
+  joinRequests   JoinRequest[]
+  studySessions  StudySession[]
+  messages       Message[]
+  groupPosts     GroupPost[]
+  groupFiles     GroupFile[]
 
   @@index([status, examDate])
   @@index([subjectId])
@@ -216,6 +220,7 @@ model Group {
   @@map("groups")
 }
 
+// Lists who belongs to which group. The leader is listed here too.
 model GroupMember {
   id        Int               @id @default(autoincrement())
   groupId   Int               @map("group_id")
@@ -226,66 +231,65 @@ model GroupMember {
   leftAt    DateTime?         @map("left_at") @db.Timestamptz(6)
   removedBy Int?              @map("removed_by")
 
-  group   Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  user    User  @relation(fields: [userId], references: [id], onDelete: Restrict)
-  remover User? @relation("RemovedBy", fields: [removedBy], references: [id], onDelete: Restrict)
+  group     Group             @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  user      User              @relation(fields: [userId], references: [id], onDelete: Restrict)
+  remover   User?             @relation("RemovedBy", fields: [removedBy], references: [id], onDelete: Restrict)
 
   @@unique([groupId, userId])
   @@index([userId])
   @@map("group_members")
 }
 
+// A student asking the leader to join a private group.
 model JoinRequest {
-  id         Int               @id @default(autoincrement())
-  groupId    Int               @map("group_id")
-  userId     Int               @map("user_id")
-  message    String?           @db.VarChar(500)
-  status     JoinRequestStatus @default(pending)
-  reviewedBy Int?              @map("reviewed_by")
-  reviewNote String?           @map("review_note") @db.VarChar(500)
-  reviewedAt DateTime?         @map("reviewed_at") @db.Timestamptz(6)
-  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id          Int               @id @default(autoincrement())
+  groupId     Int               @map("group_id")
+  userId      Int               @map("user_id")
+  message     String?           @db.VarChar(500)
+  status      JoinRequestStatus @default(pending)
+  reviewedBy  Int?              @map("reviewed_by")
+  reviewNote  String?           @map("review_note") @db.VarChar(500)
+  reviewedAt  DateTime?         @map("reviewed_at") @db.Timestamptz(6)
+  createdAt   DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  group    Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  user     User  @relation("StudentRequests", fields: [userId], references: [id], onDelete: Restrict)
-  reviewer User? @relation("ReviewedBy", fields: [reviewedBy], references: [id], onDelete: Restrict)
+  group       Group             @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  user        User              @relation("StudentRequests", fields: [userId], references: [id], onDelete: Restrict)
+  reviewer    User?             @relation("ReviewedBy", fields: [reviewedBy], references: [id], onDelete: Restrict)
 
   @@index([groupId, status])
   @@index([userId])
   @@map("join_requests")
 }
 
-// ==========================================
-// 4. STUDY SESSIONS & REVIEWS
-// ==========================================
-
+// A planned meeting for a study group (online or in-person).
 model StudySession {
-  id              Int           @id @default(autoincrement())
-  groupId         Int           @map("group_id")
-  createdBy       Int           @map("created_by")
-  title           String        @db.VarChar(150)
-  topic           String?       @db.VarChar(255)
+  id              Int            @id @default(autoincrement())
+  groupId         Int            @map("group_id")
+  createdBy       Int            @map("created_by")
+  title           String         @db.VarChar(150)
+  topic           String?        @db.VarChar(255)
   description     String?
-  scheduledAt     DateTime      @map("scheduled_at") @db.Timestamptz(6)
-  durationMinutes Int?          @map("duration_minutes") @db.SmallInt
+  scheduledAt     DateTime       @map("scheduled_at") @db.Timestamptz(6)
+  durationMinutes Int?           @map("duration_minutes") @db.SmallInt
   mode            Mode
-  location        String?       @db.VarChar(255)
-  meetingLink     String?       @map("meeting_link") @db.VarChar(500)
-  status          SessionStatus @default(scheduled)
-  cancelReason    String?       @map("cancel_reason") @db.VarChar(255)
-  createdAt       DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt       DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  location        String?        @db.VarChar(255)
+  meetingLink     String?        @map("meeting_link") @db.VarChar(500)
+  status          SessionStatus  @default(scheduled)
+  cancelReason    String?        @map("cancel_reason") @db.VarChar(255)
+  createdAt       DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime       @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  group       Group               @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  creator     User                @relation("SessionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
-  attendances SessionAttendance[]
-  reviews     Review[]
+  group           Group          @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  creator         User           @relation("SessionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  attendances     SessionAttendance[]
+  reviews         Review[]
 
   @@index([groupId, scheduledAt])
   @@map("study_sessions")
 }
 
+// Tracks who clicked "I will attend" and who actually showed up.
 model SessionAttendance {
   id        Int      @id @default(autoincrement())
   sessionId Int      @map("session_id")
@@ -294,66 +298,69 @@ model SessionAttendance {
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  session StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  user    User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  session   StudySession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([sessionId, userId])
   @@map("session_attendance")
 }
 
+// A rating left by a member after a completed session.
 model Review {
   id        Int      @id @default(autoincrement())
   sessionId Int      @map("session_id")
+  /// SAFETY: This is hidden from the group leader in API responses to protect anonymity.
   userId    Int      @map("user_id")
   rating    Int      @db.SmallInt
   comment   String?  @db.VarChar(500)
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  session StudySession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  user    User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  session   StudySession @relation(fields: [sessionId], references: [id], onDelete: Restrict)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@unique([sessionId, userId])
   @@map("reviews")
 }
 
-// ==========================================
-// 5. GROUP SPACE: CHAT, POSTS & FILES
-// ==========================================
-
+// A real-time chat message sent inside a group.
 model Message {
   id        BigInt    @id @default(autoincrement())
   groupId   Int       @map("group_id")
   userId    Int       @map("user_id")
+  /// SAFETY: Always render this as plain text in the UI, never as HTML, to prevent XSS.
   body      String
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  group Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  user  User  @relation(fields: [userId], references: [id], onDelete: Restrict)
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([groupId, id])
   @@map("messages")
 }
 
+// A pinned or important post inside a group, separate from chat.
 model GroupPost {
   id        Int       @id @default(autoincrement())
   groupId   Int       @map("group_id")
   authorId  Int       @map("author_id")
   title     String?   @db.VarChar(150)
+  /// SAFETY: Always render this as plain text in the UI, never as HTML, to prevent XSS.
   body      String
   isPinned  Boolean   @default(false) @map("is_pinned")
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  group  Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  author User  @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  group     Group     @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  author    User      @relation("PostAuthor", fields: [authorId], references: [id], onDelete: Restrict)
 
   @@index([groupId, isPinned, createdAt])
   @@map("group_posts")
 }
 
+// A file (PDF, image, etc.) uploaded and shared inside a group.
 model GroupFile {
   id           Int       @id @default(autoincrement())
   groupId      Int       @map("group_id")
@@ -367,34 +374,28 @@ model GroupFile {
   createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   deletedAt    DateTime? @map("deleted_at") @db.Timestamptz(6)
 
-  group    Group @relation(fields: [groupId], references: [id], onDelete: Restrict)
-  uploader User  @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  group        Group     @relation(fields: [groupId], references: [id], onDelete: Restrict)
+  uploader     User      @relation("FileUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
 
   @@map("group_files")
 }
 
-// ==========================================
-// 6. NOTIFICATIONS
-// ==========================================
-
+// In-app alerts shown in the bell icon.
 model Notification {
-  id        Int       @id @default(autoincrement())
-  userId    Int       @map("user_id")
-  type      String    @db.VarChar(50)
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  type      String   @db.VarChar(50)
   payload   Json
   readAt    DateTime? @map("read_at") @db.Timestamptz(6)
-  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Restrict)
 
   @@index([userId, readAt])
   @@map("notifications")
 }
 
-// ==========================================
-// 7. MODERATION & ADMIN
-// ==========================================
-
+// Complaints made by users that the admin needs to review.
 model Report {
   id             Int              @id @default(autoincrement())
   reportedBy     Int              @map("reported_by")
@@ -409,14 +410,15 @@ model Report {
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  reporter User  @relation("ReportedBy", fields: [reportedBy], references: [id], onDelete: Restrict)
-  resolver User? @relation("ResolvedBy", fields: [resolvedBy], references: [id], onDelete: Restrict)
+  reporter       User             @relation("ReportedBy", fields: [reportedBy], references: [id], onDelete: Restrict)
+  resolver       User?            @relation("ResolvedBy", fields: [resolvedBy], references: [id], onDelete: Restrict)
 
   @@index([status, createdAt])
   @@index([targetType, targetId])
   @@map("reports")
 }
 
+// A permanent record of every action an admin takes.
 model AdminAction {
   id         Int      @id @default(autoincrement())
   adminId    Int      @map("admin_id")
@@ -426,7 +428,7 @@ model AdminAction {
   details    Json?
   createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
 
-  admin User @relation("AdminActionUser", fields: [adminId], references: [id], onDelete: Restrict)
+  admin      User     @relation("AdminActionUser", fields: [adminId], references: [id], onDelete: Restrict)
 
   @@index([adminId, createdAt])
   @@map("admin_actions")
