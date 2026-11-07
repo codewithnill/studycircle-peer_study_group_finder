@@ -227,7 +227,7 @@ Run these checks from the repository root or the appropriate folder:
 
 **What problem this solves:** four students must build pieces that fit together. One shared database design, with rules enforced by the database itself, stops the pieces from breaking each other. It also supports the core promise of the project: students can find and manage study groups safely.
 
-The schema itself (every table and column) is described in `studycircle_database_schema_mvp_v2.md`. The exact enum words are in `studycircle_fixed_values.md`. This part only explains how the database and Prisma are set up.
+The schema itself (every table and column) is described in `studycircle_database_schema_mvp_v3.md`. The exact enum words are in `studycircle_fixed_values.md`. This part only explains how the database and Prisma are set up.
 
 ## Step 8 — Create PostgreSQL, the Databases, and the User
 
