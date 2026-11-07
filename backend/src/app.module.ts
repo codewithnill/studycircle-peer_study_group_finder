@@ -12,7 +12,8 @@ import { PrismaModule } from './prisma/prisma.module';
 @Module({
   imports: [
     // ConfigModule.forRoot({ isGlobal: true }) loads the .env file and makes the variables available everywhere.
-    // SAFETY: The .env file holds secrets (like passwords) and must never be committed to Git.
+    // SAFETY: The .env file holds secrets such as the database password. Never commit it.
+    // Only .env.example (with fake values) is allowed in Git.
     ConfigModule.forRoot({ isGlobal: true }),
     // We add our PrismaModule to the imports so the database is available.
     PrismaModule,

@@ -6,6 +6,7 @@ import { PrismaService } from './prisma.service';
 
 // @Global() is a decorator that tells NestJS: "Make the providers in this module available to every other module automatically."
 // SAFETY: Only this module creates the database connection. No other module may create its own PrismaClient.
+// More than one connection can use up the database's connection limit and break the app.
 @Global()
 // @Module() is a decorator that groups related things together. Here we group the PrismaService.
 @Module({
