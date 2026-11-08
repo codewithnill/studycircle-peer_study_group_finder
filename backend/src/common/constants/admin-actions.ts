@@ -1,4 +1,4 @@
-/ this file holds the fixed words for the admin activity log.
+// this file holds the fixed words for the admin activity log.
 // admin_actions.action and admin_actions.target_type are plain text columns in the database,
 // so only the code guards the spelling.
  
