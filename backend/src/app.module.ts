@@ -1,13 +1,13 @@
-// import: "Module" is the decorator that turns a class into a nestjs module.
+// imports "Module" from nestjs to define the root module of the app.
 import { Module } from '@nestjs/common';
-// import: "ConfigModule" lets nestjs read the .env file. nestjs does not read it by itself.
+// imports "ConfigModule" to load the .env file automatically.
 import { ConfigModule } from '@nestjs/config';
-// imports: the starter controller and service that nest created for us (the "hello world" route).
+// imports the starter controller and service.
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-// import: the global module that owns the one database connection.
+// imports the custom prisma module, which owns the one database connection.
 import { PrismaModule } from './prisma/prisma.module';
-// new: imports of the six feature modules.
+// imports the six feature modules. each one owns one part of the project.
 import { AdminModule } from './admin/admin.module';
 import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
@@ -15,16 +15,16 @@ import { GroupsModule } from './groups/groups.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
 
-// the main module. it joins every other module into one app.
-// "@Module({...})" tells nestjs which modules, controllers, and services belong here.
+// @Module() is the decorator that tells nestjs this is a module.
 @Module({
-  // "imports" lists the other modules this module uses.
   imports: [
-    // loads the .env file. "isGlobal: true" means every module can read the settings.
+    // ConfigModule.forRoot({ isGlobal: true }) loads the .env file and makes the variables available everywhere.
+    // safety: the .env file holds secrets such as the database password. never commit it.
+    // only .env.example (with fake values) is allowed in git.
     ConfigModule.forRoot({ isGlobal: true }),
-    // the one database connection. it is global, so other modules just ask for PrismaService.
+    // adds the prisma module to the imports so the database is available.
     PrismaModule,
-    // new: the six feature modules. each one owns one part of the project.
+    // the six feature modules. they are empty for now and get filled in week by week.
     AuthModule,
     UsersModule,
     GroupsModule,
@@ -32,9 +32,10 @@ import { UsersModule } from './users/users.module';
     ChatModule,
     AdminModule,
   ],
-  // the starter "hello world" controller. we keep it for now.
+  // controllers handle incoming http requests.
   controllers: [AppController],
-  // the starter service that the controller uses.
+  // providers are the services used by the controllers.
   providers: [AppService],
 })
+// this is the root module of the application.
 export class AppModule {}
