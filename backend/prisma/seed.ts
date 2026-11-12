@@ -1,5 +1,5 @@
 // this is the entry file for the seed script. "npx prisma db seed" runs it.
-// it checks safety, wipes the database, and then fills it with fake demo data.
+// it checks safety, wipes the database, fills it with fake demo data, and checks the result.
 
 // loads backend/.env into process.env. this must stay the first import,
 // so the variables exist before any other file reads them.
@@ -16,6 +16,10 @@ import { SeededRandom } from './seed/random';
 import { seedUsers } from './seed/seed-users';
 import { seedLookups } from './seed/seed-lookups';
 import { seedGroups } from './seed/seed-groups';
+import { seedSessions } from './seed/seed-sessions';
+import { seedChat } from './seed/seed-chat';
+// borrows the final rule checks.
+import { verifySeed } from './seed/verify';
 
 // runs the whole seed from start to end.
 async function main(): Promise<void> {
@@ -45,10 +49,20 @@ async function main(): Promise<void> {
     // step 6: create levels and subjects, and link students to subjects.
     const lookups = await seedLookups(prisma, users.studentIds, rng);
 
-    // step 7: create groups with members and join requests.
-    await seedGroups(prisma, users.studentIds, lookups, rng);
+    // step 7: create groups with members and join requests. the saved groups are kept,
+    // because sessions and chat need them.
+    const groups = await seedGroups(prisma, users.studentIds, lookups, rng);
 
-    // step 8: print how many rows each table holds, so the result is easy to check.
+    // step 8: create sessions, attendance, and reviews.
+    await seedSessions(prisma, groups, rng);
+
+    // step 9: create chat messages and group posts.
+    await seedChat(prisma, groups, rng);
+
+    // step 10: read the data back and check every rule. an error here makes the seed fail.
+    await verifySeed(prisma);
+
+    // step 11: print how many rows each table holds, so the result is easy to check.
     const [userCount, levelCount, subjectCount, groupCount, memberCount, requestCount] = await Promise.all([
       prisma.user.count(),
       prisma.level.count(),
@@ -57,12 +71,23 @@ async function main(): Promise<void> {
       prisma.groupMember.count(),
       prisma.joinRequest.count(),
     ]);
+    const [sessionCount, attendanceCount, reviewCount, messageCount, postCount] = await Promise.all([
+      prisma.studySession.count(),
+      prisma.sessionAttendance.count(),
+      prisma.review.count(),
+      prisma.message.count(),
+      prisma.groupPost.count(),
+    ]);
     console.log(
       `seed: done. users ${userCount}, levels ${levelCount}, subjects ${subjectCount}, ` +
         `groups ${groupCount}, group members ${memberCount}, join requests ${requestCount}.`,
     );
+    console.log(
+      `seed: sessions ${sessionCount}, attendance ${attendanceCount}, reviews ${reviewCount}, ` +
+        `messages ${messageCount}, posts ${postCount}.`,
+    );
   } finally {
-    // step 9: always close the connection, even after an error. an open connection
+    // step 12: always close the connection, even after an error. an open connection
     // would keep the script running and never let it exit.
     await prisma.$disconnect();
   }
