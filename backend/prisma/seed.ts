@@ -1,5 +1,5 @@
 // this is the entry file for the seed script. "npx prisma db seed" runs it.
-// right now it only checks safety and wipes the database. the data parts are added later.
+// it checks safety, wipes the database, and then fills it with fake demo data.
 
 // loads backend/.env into process.env. this must stay the first import,
 // so the variables exist before any other file reads them.
@@ -10,6 +10,12 @@ import { assertSafeToSeed, getAdminPassword } from './seed/guards';
 import { createSeedClient } from './seed/client';
 // borrows the function that clears every table.
 import { resetDatabase } from './seed/reset';
+// borrows the random maker that repeats itself. one shared instance keeps the data repeatable.
+import { SeededRandom } from './seed/random';
+// borrows the seed steps. each one has one job.
+import { seedUsers } from './seed/seed-users';
+import { seedLookups } from './seed/seed-lookups';
+import { seedGroups } from './seed/seed-groups';
 
 // runs the whole seed from start to end.
 async function main(): Promise<void> {
@@ -17,8 +23,8 @@ async function main(): Promise<void> {
   assertSafeToSeed();
 
   // step 2: check the admin password now, before the wipe, so a bad setup never leaves
-  // the database empty. the value is not used yet. the user seeding part will use it later.
-  getAdminPassword();
+  // the database empty.
+  const adminPassword = getAdminPassword();
 
   console.log('seed: checks passed. wiping the development database...');
 
@@ -28,9 +34,35 @@ async function main(): Promise<void> {
   try {
     // step 4: clear every table and restart the ids.
     await resetDatabase(prisma);
-    console.log('seed: wipe done. all tables are empty and ids restart at 1.');
+    console.log('seed: wipe done.');
+
+    // one random maker is shared by every step, so the whole run is repeatable.
+    const rng = new SeededRandom();
+
+    // step 5: create the admin and the students.
+    const users = await seedUsers(prisma, adminPassword, rng);
+
+    // step 6: create levels and subjects, and link students to subjects.
+    const lookups = await seedLookups(prisma, users.studentIds, rng);
+
+    // step 7: create groups with members and join requests.
+    await seedGroups(prisma, users.studentIds, lookups, rng);
+
+    // step 8: print how many rows each table holds, so the result is easy to check.
+    const [userCount, levelCount, subjectCount, groupCount, memberCount, requestCount] = await Promise.all([
+      prisma.user.count(),
+      prisma.level.count(),
+      prisma.subject.count(),
+      prisma.group.count(),
+      prisma.groupMember.count(),
+      prisma.joinRequest.count(),
+    ]);
+    console.log(
+      `seed: done. users ${userCount}, levels ${levelCount}, subjects ${subjectCount}, ` +
+        `groups ${groupCount}, group members ${memberCount}, join requests ${requestCount}.`,
+    );
   } finally {
-    // step 5: always close the connection, even after an error. an open connection
+    // step 9: always close the connection, even after an error. an open connection
     // would keep the script running and never let it exit.
     await prisma.$disconnect();
   }
