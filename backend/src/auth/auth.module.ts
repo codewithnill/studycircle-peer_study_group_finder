@@ -4,6 +4,8 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 // import: the jwt module supplies the tool that signs and checks tokens. the secret is given at each call, so no options are set here.
 import { JwtModule } from '@nestjs/jwt';
+// import: the throttler guard counts requests and answers 429 when a limit is passed.
+import { ThrottlerGuard } from '@nestjs/throttler';
 // import: the users module exports the users service, which the auth files need.
 import { UsersModule } from '../users/users.module';
 // import: the auth pieces made in the earlier steps.
@@ -32,7 +34,11 @@ import { TokenService } from './token.service';
     AuthService,
     TokenService,
     // safety: registering a guard under APP_GUARD runs it on every route in the app, so a new route is locked by default.
-    // the order matters: the login guard comes first and puts the person on the request. the roles guard comes after it and reads that person.
+    // the three global guards are listed here in one place, so their order is easy to see.
+    // 1. the rate limit comes first, so a flood of requests is counted before any other work is done.
+    // 2. the login guard comes next and puts the person on the request.
+    // 3. the roles guard comes last and reads that person.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
   ],
