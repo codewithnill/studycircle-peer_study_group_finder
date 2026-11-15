@@ -2,6 +2,8 @@
 import { Module } from '@nestjs/common';
 // imports "ConfigModule" to load the .env file automatically.
 import { ConfigModule } from '@nestjs/config';
+// imports "ThrottlerModule" to limit how many requests one address can send. this is the rate limit.
+import { ThrottlerModule } from '@nestjs/throttler';
 // imports the starter controller and service.
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -22,6 +24,12 @@ import { UsersModule } from './users/users.module';
     // safety: the .env file holds secrets such as the database password. never commit it.
     // only .env.example (with fake values) is allowed in git.
     ConfigModule.forRoot({ isGlobal: true }),
+    // the default rate limit for every route: at most 100 requests per minute from one address.
+    // "ttl" is the length of the time window in milliseconds. "limit" is how many requests are allowed inside it.
+    // routes with their own @Throttle() mark (register, login, refresh) use their own numbers instead.
+    // this module is global, so the throttler guard can be used in other modules without importing it again.
+    // safety: the counts are kept in the server's memory. they reset when the server restarts and are not shared between servers.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     // adds the prisma module to the imports so the database is available.
     PrismaModule,
     // the six feature modules. they are empty for now and get filled in week by week.
