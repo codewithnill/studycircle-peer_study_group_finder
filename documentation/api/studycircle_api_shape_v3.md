@@ -1,12 +1,12 @@
 # StudyCircle — API Shape Rules (v3)
 
 **Written:** 8 November 2026 (v1)
-**Revised:** 12 November 2026 (v3). The Step 5 code was run and checked. No rule was changed. This version updates the status line and adds a note about the address `/`. Earlier revision on 11 November 2026 (v2): the shared code from Step 5 was written, and the small decisions made while writing it were added. No v1 rule was reversed. Some rules were made more exact.
+**Revised:** 12 November 2026 (v3). The Step 5 code was run and checked. No rule was changed. This version updates the status line and adds a note about the address `/`. Small edit on 17 November 2026 (no rule changed, the version stays v3): the related files line now names the current files, the auth routes were checked against these rules, and one open item was added for the `429` message. Earlier revision on 11 November 2026 (v2): the shared code from Step 5 was written, and the small decisions made while writing it were added. No v1 rule was reversed. Some rules were made more exact.
 **Scope:** Every REST route in the backend. This is a living document. If a rule changes, update this file and make a new version number (v3, v4).
 
 > **What this file is:** One rulebook for how every API reply looks from the outside. It has no code. The code in Step 5 and in every feature follows it.
 > **If the code and this file disagree:** this file wins. Fix the code, or change this file on purpose.
-> **Related files:** `studycircle_database_schema_mvp_v3.md` (tables), `studycircle_fixed_values.md` (fixed words), `studycircle_mvp_3_month_plan.md` (roadmap), `nestjs_setup_v4.md` (how the shared code is set up).
+> **Related files:** `studycircle_database_schema_mvp_v4.md` (tables), `studycircle_fixed_values.md` (fixed words), `studycircle_mvp_3_month_plan.md` (roadmap), `nestjs_setup_v8.md` (how the shared code and the auth layer are set up).
 > **Status (12 November 2026):** The code that follows these rules is written and checked. The build passes, 38 unit tests pass, and the server starts. The prefix, the success wrapper, and the error shape were checked on the running server. Rules that need a real route (key conversion, unknown fields, list routes, database error codes, big ids) are not tested yet. They are tested when the first routes exist. If a test shows that a rule here does not work, fix the code, or change this file on purpose and make v4.
 
 ---
@@ -232,6 +232,8 @@ The shape of the reply does not decide access. The server checks every request.
 1. Prisma error codes with the PostgreSQL adapter. Break each of the two partial indexes with a real request and check which code comes back. The table in Section 3, rule 8 is the expected result.
 2. The shared `PaginationQueryDto` is not built yet (Section 4).
 3. The cursor helper for chat is not built yet (week 6).
+4. The `429` reply from the rate limit has the message `ThrottlerException: Too Many Requests`. This breaks Section 3, rule 1 (`message` is a short plain sentence). Change it to a plain message, for example "Too many requests. Please try again later", in the exception filter. The `Retry-After` header (for example `60`) is already sent and stays.
+5. The auth messages were checked in Postman on 17 November 2026 and follow the error shape: `409` for a duplicate email, `400` with `property role should not exist`, one general `401` for every login failure, and `401` for a suspended account. They start with a lowercase letter. This is allowed, but a capital letter would match the table in Section 3, rule 8.
 
 ---
 
