@@ -1,5 +1,5 @@
-// imports: "Transform" runs a small cleaning function on a value before the checks. the type describes what that function receives.
-import { Transform, type TransformFnParams } from 'class-transformer';
+// imports: "Transform" runs a small cleaning function on a value before the checks run.
+import { Transform } from 'class-transformer';
 // imports: the check decorators from class-validator. each one adds one rule to a field.
 import {
   IsEmail,
@@ -12,13 +12,17 @@ import {
   Min,
   MinLength,
 } from 'class-validator';
+// import: the shared text cleaning helpers, so the register form and the profile form clean text the same way.
+import { trimText, trimToNull } from '../../common/utils/text-transforms';
+// import: the shared profile field rules. the profile edit form uses the same numbers.
+import {
+  ACADEMIC_YEAR_MAX,
+  ACADEMIC_YEAR_MIN,
+  USER_DEPARTMENT_MAX_LENGTH,
+  USER_NAME_MAX_LENGTH,
+} from '../../users/users.constants';
 // import: the password length limits, so the numbers live in one place.
 import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from '../auth.constants';
-
-// removes spaces at the start and end of a text value. other kinds of values pass through unchanged,
-// so the checks below can reject them with a clear error.
-const trimText = ({ value }: TransformFnParams): unknown =>
-  typeof value === 'string' ? value.trim() : value;
 
 // the rules for the register request body.
 // the shared pipes already change incoming keys to camelCase, so "academic_year" arrives here as "academicYear".
@@ -29,7 +33,7 @@ export class RegisterDto {
   @Transform(trimText)
   @IsString()
   @IsNotEmpty()
-  @MaxLength(100)
+  @MaxLength(USER_NAME_MAX_LENGTH)
   name: string;
 
   // the login email. it must be a real email shape and fit the 255 character column.
@@ -46,16 +50,18 @@ export class RegisterDto {
   password: string;
 
   // optional: the department, for example "CSE".
+  // an empty box ("") or only spaces becomes null, so the database never holds an empty text.
+  // @IsOptional() then skips the other checks for null, because null means "no department".
   @IsOptional()
-  @Transform(trimText)
+  @Transform(trimToNull)
   @IsString()
-  @MaxLength(100)
-  department?: string;
+  @MaxLength(USER_DEPARTMENT_MAX_LENGTH)
+  department?: string | null;
 
-  // optional: the year of study. a whole number from 1 to 6.
+  // optional: the year of study, a whole number inside the shared range (1 to 6).
   @IsOptional()
   @IsInt()
-  @Min(1)
-  @Max(6)
-  academicYear?: number;
+  @Min(ACADEMIC_YEAR_MIN)
+  @Max(ACADEMIC_YEAR_MAX)
+  academicYear?: number | null;
 }

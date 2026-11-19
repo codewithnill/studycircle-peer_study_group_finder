@@ -23,11 +23,15 @@ import { RegisterDto } from './dto/register.dto';
 export const BCRYPT_ROUNDS = 12;
 
 // the one message for every failed login: wrong email, wrong password, suspended, or deleted.
+// it starts with a capital letter, like every message in the api shape rules (section 3).
 // safety: a different message for each case would tell an attacker which emails have an account.
-export const INVALID_CREDENTIALS_MESSAGE = 'email or password is not correct';
+export const INVALID_CREDENTIALS_MESSAGE = 'Email or password is not correct';
 
 // the one message for every refresh that is refused.
-export const INVALID_SESSION_MESSAGE = 'the session is not valid. please log in again';
+export const INVALID_SESSION_MESSAGE = 'The session is not valid. Please log in again';
+
+// the message for a register call with an email that already has an account.
+export const EMAIL_TAKEN_MESSAGE = 'This email is already registered';
 
 // what login gives back to the controller.
 // the two tokens are raw values. the controller puts them in cookies and never in the json reply.
@@ -87,8 +91,8 @@ export class AuthService {
       // the database refuses a second account with the same email (unique rule).
       if (isUniqueViolation(error)) {
         // an exact message is needed here, or the person cannot fix the form.
-        // the login rate limit (a later step) limits how fast someone can try many emails.
-        throw new ConflictException('this email is already registered');
+        // the register rate limit (5 calls per minute) limits how fast someone can try many emails.
+        throw new ConflictException(EMAIL_TAKEN_MESSAGE);
       }
       // any other error is a real problem. pass it on so the filter hides the details from the reply.
       throw error;

@@ -12,7 +12,7 @@ import {
 } from '@nestjs/common';
 // import: configservice reads values from the .env file.
 import { ConfigService } from '@nestjs/config';
-// import: "Throttle" sets a rate limit on one route. it does nothing until the throttler module is added (a later step).
+// import: "Throttle" sets a rate limit on one route. the throttler module in app.module.ts and the global throttler guard enforce it.
 import { Throttle } from '@nestjs/throttler';
 // import: only the type of the express response. "import type" is required here, because the type sits in a decorated parameter.
 import type { Response } from 'express';
@@ -29,6 +29,8 @@ import { Public } from './decorators/public.decorator';
 // import: the two input shapes. they are classes, so the validation pipe can check the body against their rules.
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+// import: the one "not logged in" message from the login guard, so the same text is never typed twice.
+import { UNAUTHENTICATED_MESSAGE } from './guards/jwt-auth.guard';
 
 // the part of the request that this file reads. the cookie reader (cookie-parser) fills "cookies".
 interface CookieRequest {
@@ -127,9 +129,9 @@ export class AuthController {
   async me(@CurrentUser() user: AuthUser) {
     const own = await this.users.findOwnById(user.userId);
 
-    // the account could have been deleted a moment ago.
+    // the account could have been deleted a moment ago. the reply is the same as the guard's "not logged in" reply.
     if (!own) {
-      throw new UnauthorizedException('please log in to continue');
+      throw new UnauthorizedException(UNAUTHENTICATED_MESSAGE);
     }
 
     return own;

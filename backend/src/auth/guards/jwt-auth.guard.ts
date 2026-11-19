@@ -19,8 +19,9 @@ import { AuthUser } from '../decorators/current-user.decorator';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 // the one message for every failure here: no cookie, a bad token, an expired token, a suspended or deleted account.
+// it starts with a capital letter, like every message in the api shape rules (section 3).
 // safety: a different message for each case would tell an attacker what went wrong with a stolen or forged token.
-export const UNAUTHENTICATED_MESSAGE = 'please log in to continue';
+export const UNAUTHENTICATED_MESSAGE = 'Please log in to continue';
 
 // the parts of the request that this guard uses. the cookie reader (cookie-parser) fills "cookies".
 interface AuthRequest {
@@ -30,7 +31,7 @@ interface AuthRequest {
 
 // @Injectable() tells nestjs that this class can be created by nestjs and given to other classes (dependency injection).
 @Injectable()
-// the login guard. it will run on every route (it is registered globally in the auth module).
+// the login guard. it runs on every route (it is registered globally in the auth module).
 // it lets a route in only when the access token is real and the account is still active.
 export class JwtAuthGuard implements CanActivate {
   // the constructor receives three helpers from nestjs.
