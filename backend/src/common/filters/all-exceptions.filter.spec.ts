@@ -1,7 +1,7 @@
 // imports from nestjs.
 // "ArgumentsHost" is the object that gives a filter access to the reply.
-// the three exceptions are real nestjs errors we throw in the tests.
-// "HttpException" lets us make a 500 error on purpose.
+// the three exceptions are real nestjs errors that the tests throw.
+// "HttpException" makes an error with any status, for example a 500 or a 429.
 // "Logger" is spied on, so test runs do not fill the terminal with error logs.
 import {
   ArgumentsHost,
@@ -11,21 +11,29 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-// the class we are testing.
+// imports the real error that the rate limit guard throws, so the test uses the same error as the app.
+import { ThrottlerException } from '@nestjs/throttler';
+// the class under test.
 import { AllExceptionsFilter } from './all-exceptions.filter';
 
+// the plain sentence for a 429. it is written out here on purpose, so a changed sentence makes a test fail.
+const TOO_MANY_REQUESTS_MESSAGE = 'Too many requests. Please try again later';
+
 // a helper for the tests.
-// it builds a fake "host" and gives back the two fake functions the filter calls,
-// so we can check what the filter sent.
+// it builds a fake "host" and gives back the fake functions the filter may call,
+// so a test can check what the filter sent.
 function createHost() {
   // "json" is the function that sends the body.
   const json = jest.fn();
   // "status" must return an object that has "json", just like a real reply.
   const status = jest.fn().mockReturnValue({ json });
+  // the header functions of a real reply. the filter must never call them.
+  const setHeader = jest.fn();
+  const removeHeader = jest.fn();
   const host = {
-    switchToHttp: () => ({ getResponse: () => ({ status }) }),
+    switchToHttp: () => ({ getResponse: () => ({ status, setHeader, removeHeader }) }),
   } as unknown as ArgumentsHost;
-  return { host, status, json };
+  return { host, status, json, setHeader, removeHeader };
 }
 
 // makes an error that looks like a known prisma error (same name, and a code).
@@ -41,7 +49,7 @@ describe('AllExceptionsFilter', () => {
 
   beforeEach(() => {
     filter = new AllExceptionsFilter();
-    // hide the real error logs while tests run, but still let us check they were called.
+    // hide the real error logs while tests run, but still allow a check that they were called.
     errorLog = jest.spyOn(Logger.prototype, 'error').mockImplementation();
   });
 
@@ -162,7 +170,7 @@ describe('AllExceptionsFilter', () => {
     }
   });
 
-  // a prisma code we do not know is treated as a server problem.
+  // a prisma code the filter does not know is treated as a server problem.
   it('treats an unknown prisma code as a 500', () => {
     const { host, status } = createHost();
 
@@ -186,5 +194,45 @@ describe('AllExceptionsFilter', () => {
       message: 'The request could not be understood',
       errors: [],
     });
+  });
+
+  // the real rate limit error carries the text "ThrottlerException: Too Many Requests".
+  // the filter must replace it with the plain sentence (tracker item 53).
+  it('turns the throttler error into a plain 429 sentence', () => {
+    const { host, status, json } = createHost();
+
+    filter.catch(new ThrottlerException(), host);
+
+    expect(status).toHaveBeenCalledWith(429);
+    expect(json).toHaveBeenCalledWith({
+      status_code: 429,
+      message: TOO_MANY_REQUESTS_MESSAGE,
+      errors: [],
+    });
+  });
+
+  // any 429 gets the same sentence, so later rate limits (join requests, uploads, chat) look the same.
+  it('uses the plain sentence for any 429, even with a custom text', () => {
+    const { host, status, json } = createHost();
+
+    filter.catch(new HttpException('ThrottlerException: custom text', 429), host);
+
+    expect(status).toHaveBeenCalledWith(429);
+    expect(json).toHaveBeenCalledWith({
+      status_code: 429,
+      message: TOO_MANY_REQUESTS_MESSAGE,
+      errors: [],
+    });
+  });
+
+  // the throttler guard puts the Retry-After header on the reply before the error reaches the filter.
+  // this test proves the filter never sets or removes a header, so that header survives.
+  it('never touches the reply headers, so Retry-After stays', () => {
+    const { host, setHeader, removeHeader } = createHost();
+
+    filter.catch(new ThrottlerException(), host);
+
+    expect(setHeader).not.toHaveBeenCalled();
+    expect(removeHeader).not.toHaveBeenCalled();
   });
 });

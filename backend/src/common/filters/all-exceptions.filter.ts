@@ -1,9 +1,9 @@
 // imports from nestjs.
-// "ArgumentsHost" gives us access to the current request and reply.
+// "ArgumentsHost" gives access to the current request and reply.
 // "Catch" is a decorator that tells nestjs "this class handles errors".
 // "ExceptionFilter" is the shape every filter must follow.
 // "HttpException" is the base class of nestjs errors like NotFoundException.
-// "Logger" writes messages to the server log (your terminal). the client never sees them.
+// "Logger" writes messages to the server log (the terminal). the client never sees them.
 import {
   ArgumentsHost,
   Catch,
@@ -26,16 +26,19 @@ interface ErrorBody {
   errors: ErrorItem[];
 }
 
-// the smallest part of the reply object that we need.
-// we describe it ourselves instead of importing express types.
+// the smallest part of the reply object that this file needs.
+// it is described here instead of importing express types.
 // this keeps the file simple and makes it easy to test.
 interface ReplyLike {
   status(code: number): { json(body: unknown): unknown };
 }
 
+// the status code for "too many requests" (the rate limit was passed).
+const TOO_MANY_REQUESTS = 429;
+
 // the message for any server problem.
-// safety: it never says what really went wrong, so we never leak stack traces,
-// sql errors, file paths, or the database link.
+// safety: it never says what really went wrong, so stack traces,
+// sql errors, file paths, and the database link never leak.
 const GENERIC_SERVER_MESSAGE = 'Something went wrong on our side';
 
 // short, friendly messages for common client errors, used when nothing better exists.
@@ -46,10 +49,11 @@ const DEFAULT_MESSAGES: Record<number, string | undefined> = {
   404: 'Not found',
   409: 'This action conflicts with the current data',
   413: 'The request is too big',
-  429: 'Too many requests. Please try again later',
+  // this one is always used for a 429, even when the error carries its own text (see case 1 below).
+  [TOO_MANY_REQUESTS]: 'Too many requests. Please try again later',
 };
 
-// the database error codes we turn into friendly replies.
+// the database error codes that are turned into friendly replies.
 // the full list is in the prisma error reference.
 // a service should still catch the cases it knows well
 // (for example a second pending join request) and give a more exact message.
@@ -61,7 +65,7 @@ const PRISMA_ERROR_MAP: Record<
   P2002: { status: 409, message: 'This value is already in use' },
   // a foreign key rule was broken (for example deleting something that is still used).
   P2003: { status: 409, message: 'This item is still linked to other data' },
-  // the row we wanted to change or delete does not exist.
+  // the row to change or delete does not exist.
   P2025: { status: 404, message: 'Not found' },
   // two database transactions collided. trying again usually works.
   P2034: { status: 409, message: 'The server was busy. Please try again' },
@@ -118,7 +122,7 @@ function pickErrors(response: string | object): ErrorItem[] {
 }
 
 // finds the code of a known prisma error, or gives back undefined.
-// we check the error's name instead of importing the prisma error class,
+// the error's name is checked instead of importing the prisma error class,
 // so this file does not depend on the generated client.
 function getPrismaCode(exception: unknown): string | undefined {
   if (
@@ -167,21 +171,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
   // a logger named after this class, so log lines show where they came from.
   private readonly logger = new Logger(AllExceptionsFilter.name);
 
-  // nestjs calls this method whenever an error is thrown and nobody else handled it.
+  // nestjs calls this method whenever an error is thrown and nothing else handled it.
   catch(exception: unknown, host: ArgumentsHost): void {
-    // get the reply object, so we can send our answer.
+    // get the reply object, so the answer can be sent.
     const reply = host.switchToHttp().getResponse<ReplyLike>();
 
     // work out the status and the body for this error.
     const { status, body } = this.describe(exception);
 
-    // send it.
+    // send it. only the status and the body are set here, never a header,
+    // so headers that a guard already put on the reply (like Retry-After) stay as they are.
     reply.status(status).json(body);
   }
 
   // turns any error into a safe status and body.
   private describe(exception: unknown): { status: number; body: ErrorBody } {
-    // case 1: a nestjs error (NotFoundException, ConflictException, our validation error, ...).
+    // case 1: a nestjs error (NotFoundException, ConflictException, the validation error, ...).
     if (exception instanceof HttpException) {
       const status = exception.getStatus();
 
@@ -191,7 +196,15 @@ export class AllExceptionsFilter implements ExceptionFilter {
         return buildReply(status, GENERIC_SERVER_MESSAGE);
       }
 
-      // client problems keep their message and their errors list.
+      // a rate limit error always gets the plain sentence (tracker item 53).
+      // the throttler's own text is "ThrottlerException: Too Many Requests", which shows a class name.
+      // the api shape rules say a message must be a short plain sentence that is safe to show on screen.
+      // the Retry-After header is set by the throttler guard before this point, and this filter does not touch headers.
+      if (status === TOO_MANY_REQUESTS) {
+        return buildReply(status, defaultMessage(status));
+      }
+
+      // other client problems keep their message and their errors list.
       const response = exception.getResponse();
       return buildReply(
         status,

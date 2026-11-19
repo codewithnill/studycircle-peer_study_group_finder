@@ -18,6 +18,8 @@ import { createTestApp } from './support/create-test-app';
 const INVALID_CREDENTIALS_MESSAGE = 'email or password is not correct';
 const UNAUTHENTICATED_MESSAGE = 'please log in to continue';
 const INVALID_SESSION_MESSAGE = 'the session is not valid. please log in again';
+// the plain sentence for a rate limit error (tracker item 53). it replaced "ThrottlerException: Too Many Requests".
+const TOO_MANY_REQUESTS_MESSAGE = 'Too many requests. Please try again later';
 const ACCESS_COOKIE = 'access_token';
 const REFRESH_COOKIE = 'refresh_token';
 
@@ -273,8 +275,8 @@ describe('auth routes (e2e)', () => {
     });
 
     // proves the login rate limit: 5 calls per minute per address, so the 6th call gives 429.
-    // the message is not checked on purpose, because tracker item 53 will change it to a plain sentence.
-    it('gives 429 on the 6th wrong login in one minute', async () => {
+    // it also proves the 429 reply uses the plain sentence and keeps the Retry-After header (tracker item 53).
+    it('gives 429 with the plain sentence on the 6th wrong login in one minute', async () => {
       // the first 5 wrong logins are refused normally with 401.
       for (let i = 0; i < 5; i++) {
         await request(app.getHttpServer())
@@ -289,10 +291,13 @@ describe('auth routes (e2e)', () => {
         .send({ email: 'nobody@example.com', password: 'wrong-password-1' })
         .expect(429);
 
-      // the error still has the three-key shape.
-      expect(res.body.status_code).toBe(429);
-      expect(res.body.errors).toEqual([]);
-      // the reply tells the client how many seconds to wait.
+      // the error has the three-key shape and the plain sentence, never the class name "ThrottlerException".
+      expect(res.body).toEqual({
+        status_code: 429,
+        message: TOO_MANY_REQUESTS_MESSAGE,
+        errors: [],
+      });
+      // the reply still tells the client how many seconds to wait.
       expect(res.headers['retry-after']).toBeDefined();
     });
   });
