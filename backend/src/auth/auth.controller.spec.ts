@@ -1,4 +1,4 @@
-// imports: the two error types the tests use.
+// imports: the 401 error type that the tests use.
 import { UnauthorizedException } from '@nestjs/common';
 // import: the type of the config reader. it is only a type here.
 import { ConfigService } from '@nestjs/config';
@@ -6,9 +6,10 @@ import { ConfigService } from '@nestjs/config';
 import { Role } from '../generated/prisma/client';
 // import: the type of the users service. it is only a type here.
 import { UsersService } from '../users/users.service';
-// import: the controller under test and the type of the auth service.
+// import: the controller under test.
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+// import: the type of the auth service and its fixed messages, so the fake errors use the real texts.
+import { AuthService, INVALID_CREDENTIALS_MESSAGE, INVALID_SESSION_MESSAGE } from './auth.service';
 
 // a group of tests for the auth controller.
 describe('AuthController', () => {
@@ -79,7 +80,7 @@ describe('AuthController', () => {
 
   // a failed login must not set any cookie.
   it('login sets no cookie when the credentials are refused', async () => {
-    auth.login.mockRejectedValue(new UnauthorizedException('email or password is not correct'));
+    auth.login.mockRejectedValue(new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE));
 
     await expect(
       makeController().login({ email: 'ana@studycircle.test', password: 'wrong-password' }, res as never),
@@ -100,7 +101,7 @@ describe('AuthController', () => {
 
   // a refused refresh clears the cookies and passes the error on.
   it('refresh clears the cookies when the session is refused', async () => {
-    auth.refresh.mockRejectedValue(new UnauthorizedException('the session is not valid. please log in again'));
+    auth.refresh.mockRejectedValue(new UnauthorizedException(INVALID_SESSION_MESSAGE));
 
     await expect(makeController().refresh(requestWithRefresh(), res as never)).rejects.toThrow(
       UnauthorizedException,

@@ -15,9 +15,11 @@ import { createTestApp } from './support/create-test-app';
 // the exact messages and cookie names that the frontend relies on.
 // they are written out here on purpose, instead of being imported from the code.
 // an e2e test checks the contract with the outside world, so a changed message must make this test fail.
-const INVALID_CREDENTIALS_MESSAGE = 'email or password is not correct';
-const UNAUTHENTICATED_MESSAGE = 'please log in to continue';
-const INVALID_SESSION_MESSAGE = 'the session is not valid. please log in again';
+// every message starts with a capital letter, like the api shape rules (section 3).
+const INVALID_CREDENTIALS_MESSAGE = 'Email or password is not correct';
+const UNAUTHENTICATED_MESSAGE = 'Please log in to continue';
+const INVALID_SESSION_MESSAGE = 'The session is not valid. Please log in again';
+const EMAIL_TAKEN_MESSAGE = 'This email is already registered';
 // the plain sentence for a rate limit error (tracker item 53). it replaced "ThrottlerException: Too Many Requests".
 const TOO_MANY_REQUESTS_MESSAGE = 'Too many requests. Please try again later';
 const ACCESS_COOKIE = 'access_token';
@@ -174,7 +176,7 @@ describe('auth routes (e2e)', () => {
 
       expect(res.body).toEqual({
         status_code: 409,
-        message: 'this email is already registered',
+        message: EMAIL_TAKEN_MESSAGE,
         errors: [],
       });
     });
@@ -187,6 +189,7 @@ describe('auth routes (e2e)', () => {
         .expect(400);
 
       expect(res.body.status_code).toBe(400);
+      // the field message comes from class-validator and starts with the field name, so it stays lowercase.
       expect(res.body.errors).toEqual(
         expect.arrayContaining([
           { field: 'role', message: 'property role should not exist' },
