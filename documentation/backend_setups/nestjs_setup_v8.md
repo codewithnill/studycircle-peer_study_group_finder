@@ -1154,7 +1154,7 @@ Known issues: npm audit reports 20 low and moderate findings, all in the Jest te
 
 **What problem this solves:** a study group platform is only safe when the server knows who is calling. Without login, anyone could join a group, read private chat, or pretend to be a leader. This part adds sign-up, login, logout, and a lock on every route, so the later group, chat, and admin features can trust "who is this person".
 
-> **Status (17 November 2026):** the code in this part is written, committed, and checked. `npx tsc --noEmit` is clean and `npm run build` has no errors. `npm test` passes 111 tests in 12 suites (it was 38). `npm run test:e2e` passes 4 tests in 2 suites. The rate limit was tested by hand (5 wrong logins give `401`, then `429` with a `Retry-After` header). A Postman and DBeaver round of 19 screenshots is saved in `screenshots/postman/` at the repository root. One item is still open: the e2e tests skip `main.ts` (tracker item 51, see the end of Part 5).
+> **Status (17 November 2026):** the code in this part is written, committed, and checked. `npx tsc --noEmit` is clean and `npm run build` has no errors. `npm test` passes 111 tests in 12 suites (it was 38). `npm run test:e2e` passes 4 tests in 2 suites. The rate limit was tested by hand (5 wrong logins give `401`, then `429` with a `Retry-After` header). A Postman and DBeaver round of 19 screenshots is saved in `screenshots/postman_manual_api_testing/` at the repository root. One item is still open: the e2e tests skip `main.ts` (tracker item 51, see the end of Part 5).
 
 **Part 7 did not change `tsconfig.json`, `prisma.config.ts`, the schema, or any migration.** Passport is **not** used. The login check is a small custom guard, so there is one less package to learn and audit.
 
@@ -1325,7 +1325,7 @@ The pipe order from Step 20 does not change: the snake-to-camel pipe first, then
 | `GET /api/v1` | `200` (open route) |
 | `GET /api/v1/auth/me` | `401` (locked by default) |
 
-**The Postman and DBeaver round.** Screenshots are saved in `screenshots/postman/` at the repository root. Never show real cookie token values, `.env`, or a real password in a screenshot. The demo passwords `Postman@123` and `Student@12345` are throwaway values and are safe to show.
+**The Postman and DBeaver round.** Screenshots are saved in `screenshots/postman_manual_api_testing/` at the repository root. Never show real cookie token values, `.env`, or a real password in a screenshot. The demo passwords `Postman@123` and `Student@12345` are throwaway values and are safe to show.
 
 | # | Test | Expected |
 |---|---|---|
@@ -1594,7 +1594,7 @@ This shows only what is **new or changed** after Part 7. Everything else stays a
 ```text
 studycircle-peer_study_group_finder/
 ├── screenshots/
-│   └── postman/                      (19 screenshots: 01-register-success ... 19-rate-limit-429)
+│   └── postman_manual_api_testing/   (19 screenshots: 01-register-success ... 19-rate-limit-429)
 └── backend/
     ├── .env.example                  (CHANGED: JWT_ACCESS_SECRET and FRONTEND_URL added)
     ├── package.json                  (CHANGED: @nestjs/jwt, @nestjs/throttler, cookie-parser, @types/cookie-parser)
