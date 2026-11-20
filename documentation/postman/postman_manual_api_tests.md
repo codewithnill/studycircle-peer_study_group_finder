@@ -1,7 +1,7 @@
 # StudyCircle — Postman Manual API Tests
 
-**Tests done up to:** test 19, on 17 November 2026.
-**Next test number:** 20.
+**Tests done up to:** test 29, on 20 November 2026.
+**Next test number:** 30.
 
 ## 1. What This File Is
 
@@ -18,9 +18,9 @@ Use this section when a new chat must continue the API tests.
 
 **What to attach to the new chat:**
 1. This file (`postman_manual_api_tests.md`).
-2. `studycircle_api_shape_v3.md` (the reply rules).
+2. The newest `studycircle_api_shape_v6.md` (the reply rules), or a newer one.
 3. `studycircle_database_schema_mvp_v4.md` and `studycircle_fixed_values.md`.
-4. The newest `nestjs_setup_v8.md` (or a newer one).
+4. The newest `nestjs_setup_v11.md` (or a newer one).
 
 **Rules for the chat (Claude):**
 1. Read the log in Section 6. Find the highest test number. Continue from the next number.
@@ -72,6 +72,7 @@ Add tests 20 to 22 for group creation to the log and the details, with the date 
 |---|---|---|
 | Postman test account | `postman01@studycircle.test` | Made by test 01. Password `Postman@123`. Role `student`. |
 | Seed student | `student01@studycircle.test` | Made by the seed script. Password `Student@12345`. Name "Anika Rahman" (checked on 17 November 2026). Seed ids start at 2 for the first student. |
+| Second seed student | id `3` | Made by the seed script. Name "Rafi Sarker" (checked on 20 November 2026). Used as "another person" in tests 24 and 25. |
 | Seed admin | `admin@studycircle.test` | Password is `SEED_ADMIN_PASSWORD` from `backend/.env`. Never write it here. |
 | Unknown email | `nobody99@studycircle.test` | Has no account. Used in test 06. |
 | Wrong password | `WrongPass@999` | A throwaway value for the wrong-password tests. |
@@ -87,6 +88,8 @@ All passwords above except the admin one are throwaway demo values. They are saf
 | Register success (`201`) | `data` with `id`, `name`, `department`, `academic_year`, `bio`, `role`. No email, no hash. |
 | Login success and `me` (`200`) | `data` with the same fields, plus the person's own `email`. No token text. |
 | Action with nothing to return (`200`) | `{ "data": null }` |
+| Own profile (`200`) | `data` with `id`, `name`, `department`, `academic_year`, `bio`, `subjects` (a list of `id` and `name`), the person's own `email`, and `role`. Checked on 20 November 2026. |
+| Public profile (`200`) | `data` with `id`, `name`, `department`, `academic_year`, `bio`, `subjects`. No email, no role. Checked on 20 November 2026. |
 | Any error | `status_code`, `message`, `errors` (a list, empty unless it is a form error) |
 
 ## 6. Test Log
@@ -112,16 +115,29 @@ All passwords above except the admin one are throwaway demo values. They are saf
 | 17 | DBeaver: refresh token hashes | 64 hex characters, cancelled rows flagged | 17 November 2026 | `17-dbeaver-refresh-token-hash.png` |
 | 18 | DBeaver: password hashes | bcrypt, `$2b$`, length 60 | 17 November 2026 | `18-dbeaver-password-hash.png` |
 | 19 | Login rate limit | `429`, `Retry-After: 60` | 17 November 2026 | `19-rate-limit-429.png` |
+| 20 | Own profile | `200`, own email and subjects | 20 November 2026 | `20-profile-own-success.png` |
+| 21 | Edit own profile | `200`, bio saved without outer spaces | 20 November 2026 | `21-profile-edit-success.png` |
+| 22 | Edit with an extra `role` field | `400`, nothing saved | 20 November 2026 | `22-profile-edit-role-refused.png` |
+| 23 | Edit with a bad `academic_year` | `400`, the field is named | 20 November 2026 | `23-profile-edit-bad-year-refused.png` |
+| 24 | Public profile of another student | `200`, no email, no role | 20 November 2026 | `24-profile-public-no-email.png` |
+| 25 | Public profile of a suspended student | `404` | 20 November 2026 | `25-profile-public-suspended-404.png` |
+| 26 | Add a subject | `201` | 20 November 2026 | `26-profile-subject-add-success.png` |
+| 27 | Add the same subject again | `409` | 20 November 2026 | `27-profile-subject-add-duplicate-409.png` |
+| 28 | Remove a subject | `200`, `{ "data": null }` | 20 November 2026 | `28-profile-subject-remove-success.png` |
+| 29 | Own profile without a login | `401` | 20 November 2026 | `29-profile-own-no-login-401.png` |
 
 **Rounds:**
 
 | Round | Date | Tests | Notes |
 |---|---|---|---|
-| 1 | 17 November 2026 | 01 to 19 | Backend authentication (register, login, me, refresh, logout, suspension, rate limit). All passed. One known issue: the `429` message is `ThrottlerException: Too Many Requests` and is not a plain sentence. It is listed as an open item in `studycircle_api_shape_v3.md`. |
+| 1 | 17 November 2026 | 01 to 19 | Backend authentication (register, login, me, refresh, logout, suspension, rate limit). All passed. The screenshots show the messages of that day: lowercase auth messages and the `429` text `ThrottlerException: Too Many Requests`. Both were changed on 19 November 2026 (Section 7 shows the new text). |
+| 2 | 20 November 2026 | 20 to 29 | Profile routes (own profile, edit, refused fields, public profile, suspended profile, subjects of interest, no login). All passed. Demo data was put back afterwards and checked in DBeaver. |
 
 ## 7. Test Details
 
-The tests of round 1 depend on each other. Run them in order the first time. After that, each test says what it needs.
+The tests of round 1 depend on each other. Run them in order the first time. After that, each test says what it needs. The tests of round 2 (20 to 29) also run in order, because tests 27 and 28 use the subject added in test 26.
+
+**Message wording.** On 19 November 2026 every auth message got a capital first letter, and the `429` message became a plain sentence (tracker item 53). The expected replies below show the new text. Screenshots 01 to 19 were taken on 17 November 2026, so they show the old lowercase text. They still prove the same behaviour.
 
 ### Cleanup SQL (DBeaver, database `studycircle`)
 
@@ -143,6 +159,24 @@ UPDATE users SET status = 'suspended' WHERE email = 'student01@studycircle.test'
 
 ```sql
 UPDATE users SET status = 'active' WHERE email = 'student01@studycircle.test';
+```
+
+**Suspend the second seed student** (before test 25):
+
+```sql
+UPDATE users SET status = 'suspended' WHERE id = 3;
+```
+
+**Restore the second seed student** (always do this right after the screenshot of test 25):
+
+```sql
+UPDATE users SET status = 'active' WHERE id = 3;
+```
+
+**Check the two seed students after round 2.** Both must be `active`. `student01` (id 2) must have `bio` NULL and 3 subjects, and id 3 must have 3 subjects:
+
+```sql
+SELECT u.id, u.name, u.status, u.bio, (SELECT COUNT(*) FROM user_subjects us WHERE us.user_id = u.id) AS subject_count FROM users u WHERE u.id IN (2, 3) ORDER BY u.id;
 ```
 
 ---
@@ -200,7 +234,7 @@ Body: the same as test 01.
 ```json
 {
   "status_code": 409,
-  "message": "this email is already registered",
+  "message": "This email is already registered",
   "errors": []
 }
 ```
@@ -330,7 +364,7 @@ Body (the email is real, the password is wrong):
 ```json
 {
   "status_code": 401,
-  "message": "email or password is not correct",
+  "message": "Email or password is not correct",
   "errors": []
 }
 ```
@@ -364,7 +398,7 @@ Body:
 }
 ```
 
-**Expected:** status `401`. The reply is exactly the same as test 05, with the message `email or password is not correct`. No cookies.
+**Expected:** status `401`. The reply is exactly the same as test 05, with the message `Email or password is not correct`. No cookies.
 
 **Screenshot:** `06-login-unknown-email.png`
 
@@ -494,7 +528,7 @@ Body: none.
 ```json
 {
   "status_code": 401,
-  "message": "the session is not valid. please log in again",
+  "message": "The session is not valid. Please log in again",
   "errors": []
 }
 ```
@@ -558,7 +592,7 @@ Body: none.
 ```json
 {
   "status_code": 401,
-  "message": "please log in to continue",
+  "message": "Please log in to continue",
   "errors": []
 }
 ```
@@ -592,7 +626,7 @@ POST http://localhost:3000/api/v1/auth/refresh
 
 Body: none.
 
-**Expected:** status `401`, with the message `the session is not valid. please log in again`, the three keys, and no `data`.
+**Expected:** status `401`, with the message `The session is not valid. Please log in again`, the three keys, and no `data`.
 
 **Tip:** if the Cookies tab has no add option, put the cookie in a `Cookie` header on the request instead. Remove the header afterwards.
 
@@ -655,7 +689,7 @@ GET http://localhost:3000/api/v1/auth/me
 
 Body: none.
 
-**Expected:** status `401`, with the message `please log in to continue`. It is the same message as "not logged in", on purpose.
+**Expected:** status `401`, with the message `Please log in to continue`. It is the same message as "not logged in", on purpose.
 
 Do **not** restore the account yet. Test 16 needs it suspended.
 
@@ -688,7 +722,7 @@ Body (the password is correct):
 }
 ```
 
-**Expected:** status `401`, with the message `email or password is not correct`. No `data`, no cookies.
+**Expected:** status `401`, with the message `Email or password is not correct`. No `data`, no cookies.
 
 **Cleanup (after the screenshot):** restore the account in DBeaver. If you restore it before the screenshot, the login would succeed with `200`.
 
@@ -779,14 +813,14 @@ Body (the same each time):
 ```json
 {
   "status_code": 429,
-  "message": "ThrottlerException: Too Many Requests",
+  "message": "Too many requests. Please try again later",
   "errors": []
 }
 ```
 
 **Manual check:** in the response **Headers** tab, `Retry-After` is `60`.
 
-**Known issue:** the message is a class name and not a plain sentence. It is an open item in `studycircle_api_shape_v3.md`. When it is fixed, update the expected message here.
+**Message change (19 November 2026):** the message used to be the class name `ThrottlerException: Too Many Requests`. Since tracker item 53, the exception filter sends the plain sentence shown above. Screenshot 19 was taken before the change, so it still shows the old text.
 
 **Screenshot:** `19-rate-limit-429.png`
 
@@ -794,6 +828,381 @@ Body (the same each time):
 docs: add postman screenshot for the login rate limit.
 
 Show the 429 reply when more than five login attempts are sent in one minute.
+```
+
+---
+
+### Test 20 — Own profile
+
+**What it is for:** shows that a logged-in person can read their own full profile, with their own email and subjects. The reply has no password hash, no account status, and no token.
+
+**Before:** log in as `student01` with the body of test 14, in the same Postman window.
+
+```text
+GET http://localhost:3000/api/v1/users/me/profile
+```
+
+Body: none.
+
+**Expected:** status `200 OK`. On 20 November 2026 the reply was:
+
+```json
+{
+  "data": {
+    "id": 2,
+    "name": "Anika Rahman",
+    "department": "Physics",
+    "academic_year": 2,
+    "bio": null,
+    "subjects": [
+      { "id": 3, "name": "Database Systems" },
+      { "id": 11, "name": "Microeconomics" },
+      { "id": 8, "name": "Physics I" }
+    ],
+    "email": "student01@studycircle.test",
+    "role": "student"
+  }
+}
+```
+
+The subjects are sorted by name. No `password_hash`, no `status`, no token text.
+
+**Manual step:** write down the `bio` value. Test 29 puts it back.
+
+**Screenshot:** `20-profile-own-success.png`
+
+```text
+docs: add postman screenshot for the own profile route.
+
+Show the 200 reply of GET /users/me/profile for the seed student, with her own email, department, year, bio, role, and subjects of interest sorted by name, and no password hash, status, or token in the body.
+```
+
+---
+
+### Test 21 — Edit own profile
+
+**What it is for:** shows that a person can change their own profile, and that the outer spaces of a text are removed before it is saved.
+
+**Before:** logged in as `student01` (test 20).
+
+```text
+PATCH http://localhost:3000/api/v1/users/me
+```
+
+Body (raw, JSON). The spaces at both ends are there on purpose:
+
+```json
+{
+  "bio": "  Testing the profile route  "
+}
+```
+
+**Expected:** status `200 OK`. The reply is the full own profile (the same shape as test 20), with `"bio": "Testing the profile route"` and no spaces at the ends. Every other field is unchanged.
+
+**Screenshot:** `21-profile-edit-success.png` (show the request body and the reply).
+
+```text
+docs: add postman screenshot for a successful profile edit.
+
+Show the 200 reply of PATCH /users/me when the seed student changes her bio, with the outer spaces removed from the saved text and every other field unchanged.
+```
+
+---
+
+### Test 22 — Edit with an extra `role` field
+
+**What it is for:** shows that nobody can make themselves an admin through the profile edit. The whole request is refused, so even the valid part is not saved.
+
+**Before:** logged in as `student01`.
+
+```text
+PATCH http://localhost:3000/api/v1/users/me
+```
+
+Body (raw, JSON):
+
+```json
+{
+  "bio": "Should not be saved",
+  "role": "admin"
+}
+```
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "Validation failed",
+  "errors": [
+    { "field": "role", "message": "property role should not exist" }
+  ]
+}
+```
+
+**Manual check:** send `GET /users/me/profile`. The `bio` must still be `Testing the profile route`, not `Should not be saved`. (Checked on 20 November 2026.)
+
+**Screenshot:** `22-profile-edit-role-refused.png` (show the request body and the reply).
+
+```text
+docs: add postman screenshot for a refused role field in the profile edit.
+
+Show the 400 reply with the message property role should not exist when a profile edit tries to send a role field, which proves a student cannot make themselves an admin and that nothing in the refused request is saved.
+```
+
+---
+
+### Test 23 — Edit with a bad `academic_year`
+
+**What it is for:** shows that the year must be a whole number from 1 to 6, and that the error names the field in snake_case.
+
+**Before:** logged in as `student01`.
+
+```text
+PATCH http://localhost:3000/api/v1/users/me
+```
+
+Body (raw, JSON):
+
+```json
+{
+  "academic_year": 7
+}
+```
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "Validation failed",
+  "errors": [
+    { "field": "academic_year", "message": "academic_year must not be greater than 6" }
+  ]
+}
+```
+
+**Screenshot:** `23-profile-edit-bad-year-refused.png` (show the request body and the reply).
+
+```text
+docs: add postman screenshot for a refused academic year in the profile edit.
+
+Show the 400 reply when academic_year is 7, with the errors list naming the field in snake_case and the message saying it must not be greater than 6.
+```
+
+---
+
+### Test 24 — Public profile of another student
+
+**What it is for:** shows what a leader will see when a student asks to join a group. The public profile has no email and no role.
+
+**Before:** logged in as `student01`. The second seed student (id `3`) is `active`.
+
+```text
+GET http://localhost:3000/api/v1/users/3/profile
+```
+
+Body: none.
+
+**Expected:** status `200 OK`. The keys are exactly `id`, `name`, `department`, `academic_year`, `bio`, `subjects`. On 20 November 2026 the reply was:
+
+```json
+{
+  "data": {
+    "id": 3,
+    "name": "Rafi Sarker",
+    "department": "Mathematics",
+    "academic_year": 1,
+    "bio": "Retaking a course and want steady practice.",
+    "subjects": [
+      { "id": 5, "name": "Calculus I" },
+      { "id": 9, "name": "Digital Logic Design" },
+      { "id": 12, "name": "Technical Writing" }
+    ]
+  }
+}
+```
+
+No `email`, no `role`, no `status`, no `password_hash`.
+
+**Screenshot:** `24-profile-public-no-email.png`
+
+```text
+docs: add postman screenshot for a public profile without email.
+
+Show the 200 reply of GET /users/3/profile, where one student views another student's public profile with only the name, department, year, bio, and subjects, and no email, role, status, or password hash.
+```
+
+---
+
+### Test 25 — Public profile of a suspended student
+
+**What it is for:** shows that a suspended account never appears in a public view. The reply is the same `404` as an unknown id, so nobody can tell that the account exists.
+
+**Before:** logged in as `student01`. Suspend the second seed student with the SQL in "Cleanup SQL" above.
+
+```text
+GET http://localhost:3000/api/v1/users/3/profile
+```
+
+Body: none.
+
+**Expected:** status `404 Not Found`.
+
+```json
+{
+  "status_code": 404,
+  "message": "This profile does not exist",
+  "errors": []
+}
+```
+
+**Cleanup (right after the screenshot):** restore the second seed student with the SQL above, then send the test 24 request again. It must give `200`.
+
+**Screenshot:** `25-profile-public-suspended-404.png`
+
+```text
+docs: add postman screenshot for the public profile of a suspended student.
+
+Show the 404 reply with the message This profile does not exist when a student asks for the public profile of a suspended account, which is the same reply as an unknown id, so nobody can tell that the hidden account exists.
+```
+
+---
+
+### Test 26 — Add a subject
+
+**What it is for:** shows that a student can add a subject of interest. The reply is the added subject with only its id and name.
+
+**Before:** logged in as `student01`. Pick an active subject that is not in her list. On 20 November 2026 subject `5` ("Calculus I") was free.
+
+```text
+POST http://localhost:3000/api/v1/users/me/subjects
+```
+
+Body (raw, JSON):
+
+```json
+{
+  "subject_id": 5
+}
+```
+
+**Expected:** status `201 Created`.
+
+```json
+{
+  "data": {
+    "id": 5,
+    "name": "Calculus I"
+  }
+}
+```
+
+**Screenshot:** `26-profile-subject-add-success.png` (show the request body and the reply).
+
+```text
+docs: add postman screenshot for adding a subject of interest.
+
+Show the 201 reply of POST /users/me/subjects when the seed student adds an active subject that is not yet in her list, with only the subject id and name in the body.
+```
+
+---
+
+### Test 27 — Add the same subject again
+
+**What it is for:** shows that the same subject cannot be added twice, with a clear message instead of a database error.
+
+**Before:** test 26 is done.
+
+```text
+POST http://localhost:3000/api/v1/users/me/subjects
+```
+
+Body: the same as test 26.
+
+**Expected:** status `409 Conflict`.
+
+```json
+{
+  "status_code": 409,
+  "message": "This subject is already in your list",
+  "errors": []
+}
+```
+
+**Screenshot:** `27-profile-subject-add-duplicate-409.png` (show the request body and the reply).
+
+```text
+docs: add postman screenshot for adding the same subject twice.
+
+Show the 409 reply with the message This subject is already in your list when the same subject is added a second time, instead of the general database message.
+```
+
+---
+
+### Test 28 — Remove a subject
+
+**What it is for:** shows that a student can remove a subject from their own list. This also puts the list back to the seed state.
+
+**Before:** test 26 is done (subject `5` is in the list).
+
+```text
+DELETE http://localhost:3000/api/v1/users/me/subjects/5
+```
+
+Body: none.
+
+**Expected:** status `200 OK`.
+
+```json
+{
+  "data": null
+}
+```
+
+**Screenshot:** `28-profile-subject-remove-success.png`
+
+```text
+docs: add postman screenshot for removing a subject of interest.
+
+Show the 200 reply with an empty data value when the seed student removes a subject from her own list, which also puts her list back to the seed state.
+```
+
+---
+
+### Test 29 — Own profile without a login
+
+**What it is for:** shows that the profile routes are locked. Without a login cookie, the reply is `401` with no profile data.
+
+**Before:**
+1. Logged in as `student01`. Put the bio back to the value written down in test 20 (it was `null` on 20 November 2026): `PATCH http://localhost:3000/api/v1/users/me` with the body `{ "bio": null }`. Expect `200`.
+2. Send `GET /users/me/profile` and check that it matches test 20 again.
+3. Log out: `POST http://localhost:3000/api/v1/auth/logout`, body none. Expect `200` with `{ "data": null }`.
+
+```text
+GET http://localhost:3000/api/v1/users/me/profile
+```
+
+Body: none.
+
+**Expected:** status `401 Unauthorized`.
+
+```json
+{
+  "status_code": 401,
+  "message": "Please log in to continue",
+  "errors": []
+}
+```
+
+**Cleanup:** run the "Check the two seed students after round 2" query in DBeaver. Both rows must match the expected values.
+
+**Screenshot:** `29-profile-own-no-login-401.png`
+
+```text
+docs: add postman screenshot for the own profile without a login.
+
+Show the 401 reply with the message Please log in to continue when the own profile route is called after logout, which proves that the profile routes are locked without a login cookie.
 ```
 
 ---
