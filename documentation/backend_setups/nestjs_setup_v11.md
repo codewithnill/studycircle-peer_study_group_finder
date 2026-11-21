@@ -4,7 +4,7 @@
 
 ## What Changed in This Version
 
-This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message. Part 11 (Step 58) adds the read routes for the active subjects and levels.
+This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message. Part 11 (Step 58) adds the read routes for the active subjects and levels. Part 12 (Step 59) adds creating, viewing, and editing study groups.
 
 | Type | What | Where in this file |
 |---|---|---|
@@ -16,14 +16,16 @@ This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 5
 | ADDED | Part 10: the new unit and e2e tests, the login helper, the Postman round 2, and the checks | Part 10, Step 56 |
 | ADDED | Part 10: `@CurrentUser()` uses the shared `UNAUTHENTICATED_MESSAGE`, the guard uses a type-only import, a new decorator spec, and the dropped `auth.e2e-spec.ts` cleanup | Part 10, Step 57 |
 | ADDED | Part 11: `GET /subjects` and `GET /levels` in a new `lookups` module, the decisions, the tests, and the known limits | Part 11, Step 58 |
+| ADDED | Part 12: `POST /groups`, `GET /groups/:id`, and `PATCH /groups/:id`, the eight group decisions, the transaction for the leader row, the tests, and the known limits | Part 12, Step 59 |
 | ADDED | Known limits of the profile routes | Part 10, end |
 | REMOVED | Two known-limit rows (the lowercase decorator message, and the `auth.e2e-spec.ts` cookie helpers), because Step 57 settled both | Known Limits of the Profile Routes |
 | REMOVED | The known-limit row "No route lists the subjects a person can pick", because Step 58 added that route | Known Limits of the Profile Routes |
 | ADDED | Folder tree after the profile routes | Final Folder Structure (After Profile Routes) |
 | ADDED | Folder tree after the subject and level lists | Final Folder Structure (After Subject and Level Lists) |
+| ADDED | Folder tree after the group routes | Final Folder Structure (After Group Routes) |
 | ADDED | Troubleshooting rows, cheat sheet rows, and rules for the profile routes | Troubleshooting, Quick Cheat Sheet, Rules to Never Forget |
 | CHANGED | `register.dto.ts` now uses the shared limits and turns an empty `department` into `null` | Part 10, Step 52 |
-| UPDATED | The unit test count is now 171 in 19 suites (it was 114 in 12, 163 in 16 after Step 56, and 165 in 17 after Step 57). The e2e count is now 48 in 5 suites (it was 20 in 3, and 44 in 4 after Step 56) | Part 10, Steps 56 and 57, and Part 11, Step 58 |
+| UPDATED | The unit test count is now 185 in 21 suites (it was 114 in 12, 163 in 16 after Step 56, 165 in 17 after Step 57, and 171 in 19 after Step 58). The e2e count is now 62 in 6 suites (it was 20 in 3, 44 in 4 after Step 56, and 48 in 5 after Step 58) | Parts 10 to 12 |
 | UPDATED | The API shape file is now `studycircle_api_shape_v6.md` | Whole file |
 | UPDATED | The "What This Setup Produces" table counts the new files | What This Setup Produces |
 
@@ -33,11 +35,11 @@ StudyCircle is a peer study group finder platform maintained as one monorepo. Th
 
 | Location | Purpose | Final state |
 |---|---|---|
-| `backend/` | NestJS and TypeScript backend | Scaffolded, installed, runnable, connected to PostgreSQL through Prisma, with the shared API layer, one shared app setup function, the auth layer, the profile routes, the subject and level lists, six feature modules and the `lookups` module, a seed script, and a test database setup for e2e tests |
+| `backend/` | NestJS and TypeScript backend | Scaffolded, installed, runnable, connected to PostgreSQL through Prisma, with the shared API layer, one shared app setup function, the auth layer, the profile routes, the subject and level lists, the group create, view, and edit routes, six feature modules and the `lookups` module, a seed script, and a test database setup for e2e tests |
 | `backend/prisma/` | Prisma schema, migrations, and the seed script | 17 tables, 10 enums, 2 migrations, and `seed.ts` with 11 helper files in `seed/` |
 | `backend/src/common/` | Shared fixed words, helpers, pipes, interceptor, and filter | 20 files that apply the API shape rules (15 from Part 3, and 5 from Part 10: `database-limits.ts`, the text helpers, and the safe id pipe, each with its spec where it has one) |
 | `backend/src/app.setup.ts` | The shared app setup | One function, `configureApp()`, used by `main.ts` and the e2e tests |
-| `backend/test/` | End-to-end tests and the test database setup | 1 app setup test file, 1 database check test file, 1 auth test file, 1 users test file, 1 lookups test file, and 6 support files in `support/` |
+| `backend/test/` | End-to-end tests and the test database setup | 1 app setup test file, 1 database check test file, 1 auth test file, 1 users test file, 1 lookups test file, 1 groups test file, and 6 support files in `support/` |
 | `frontend/` | Planned Next.js frontend with React 19, TypeScript, and Tailwind CSS | Empty placeholder folder |
 | `documentation/` | Project documentation | Contains this setup reference |
 | `.git/` | Monorepo Git metadata | At the repository root only |
@@ -2004,6 +2006,114 @@ Commit: the 7 files above, with the subject `feat: add read routes for the activ
 
 ---
 
+# Part 12 — Create, View, and Edit Study Groups (ADDED)
+
+**What problem this solves:** this is the heart of StudyCircle. Without it, students fall back to messy social media posts that have no clear subject, no size, and no owner. Now a student can create a proper study group with a subject, a level, an exam date, a mode, and a size. Every group has exactly one leader from the first moment, only that leader can change the details, and other students see a clean group page with the seats that are still free.
+
+> **Status (22 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings are unchanged, and none is in a `groups` file). `npm test` passes 185 tests in 21 suites (it was 171 in 19). `npm run test:e2e` passes 62 tests in 6 suites (it was 48 in 5), and the output names `studycircle_test`. `npm run start:dev` shows the three new `Mapped {/api/v1/groups...}` lines.
+
+**Part 12 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. `app.module.ts` already imported `GroupsModule`.
+
+## Step 59 — Add the Group Routes
+
+**The decisions:**
+
+| # | Question | Decision | Why |
+|---|---|---|---|
+| 1 | Who may create a group? | Any active student. The creator becomes the leader. | The admin moderates groups and does not lead them. |
+| 2 | Group size | `max_size` is a whole number from **2 to 30**, counting the leader | The example range in the schema file. 2 means the leader plus one partner. |
+| 3 | Exam date | Optional. When it is sent, it must be **today or later** (by the server clock, UTC). | Search hides groups with a past exam date, so a new group with a past date would be invisible at once. |
+| 4 | Location | Required for `in_person`, optional for `online` | The rule from the schema file. |
+| 5 | What can the leader edit? | Every create field, with the same checks | One set of rules for both forms. |
+| 6 | Size below the member count | Refused with `409` | A group must never hold more people than its size. |
+| 7 | Who sees a group page? | Any logged-in user sees `active` and `closed` groups. Active members also see `archived` ones. `removed` and deleted groups give `404` to everyone. | Students must see a group before asking to join. Hidden groups give the same reply as a missing one. |
+| 8 | Close or reopen a group | Not in this step | It comes with leaving, archiving, and the admin work. |
+
+**Small defaults:** `title` up to 150 characters (required), `topic` up to 255 (optional), `description` up to 2000 (required, because the column has no size), `location` up to 255. The subject is required and the level is optional, and both must be active. Creating a group is limited to 10 calls per minute per address.
+
+**The files:**
+
+| File | What it does |
+|---|---|
+| `src/groups/groups.constants.ts` (NEW) | The text limits, the size range, and six messages. Two other messages (`This subject does not exist`, `Send at least one field to change`) are imported from `users.constants.ts`, never typed again. |
+| `src/groups/dto/create-group.dto.ts` (NEW) | The `POST` body. It does **not** list `leader_id`, `status`, `is_flagged`, or `institution_id`, so the validation pipe refuses them with `400`. The exam date must match `YYYY-MM-DD` and be a real day (`@IsISO8601({ strict: true })` refuses `2026-02-30`). |
+| `src/groups/dto/update-group.dto.ts` (NEW) | The `PATCH` body. Every field is optional. `title`, `subject_id`, `description`, `mode`, `max_size`, and `members_can_post` use `@ValidateIf`, so they may be missing but never `null`. `level_id`, `topic`, `exam_date`, and `location` may be cleared with `null`. |
+| `src/groups/groups.service.ts` (NEW) | `createGroup`, `getGroup`, and `updateGroup`, the safe select list, the reply shape, and the rule checks. |
+| `src/groups/groups.controller.ts` (NEW, + spec) | Three thin routes. `@Throttle()` lowers the create limit to 10 per minute. |
+| `src/groups/groups.module.ts` (CHANGED) | Lists the controller and the service. |
+| `src/groups/dto/groups-dto.spec.ts` (NEW) | 11 tests for both DTOs. |
+| `test/groups.e2e-spec.ts` (NEW) | 14 e2e tests. |
+
+**How create works:**
+1. The service checks the location rule and the exam date first, before any database work.
+2. Then one transaction checks that the subject and the level are active, creates the group row with `leader_id` taken from the login cookie, and creates the leader's `group_members` row (`role = leader`, `status = active`).
+3. If any step fails, nothing is saved. The rule "every group has exactly one active leader" is true from the first moment.
+
+**How edit works:** one transaction at the **Serializable** level.
+1. The group is read again. A removed or deleted group gives `404`.
+2. The leader is read from the database (`groups.leader_id`), never from the request. A stranger to an archived group gets `404`. Everyone else who is not the leader gets `403`.
+3. The location rule uses the new value of each field, or the old value when the field was not sent. So switching to `in_person` without a location, or clearing the location of an in-person group, gives `400`.
+4. The subject, the level, and the exam date are checked **only when they change**. A leader who resends an old exam date that is now in the past, or a subject the admin hid later, is not refused.
+5. A new `max_size` is compared with the active member count (the leader counts too). Smaller gives `409`.
+6. Serializable makes later join approvals and size changes act as if they ran one after the other, so the group can never go over its size. A collision gives `P2034`, which the filter answers with `409`.
+
+**The reply shape (the group page):**
+
+| Key | Meaning |
+|---|---|
+| `id`, `title`, `topic`, `description`, `mode`, `location`, `max_size`, `status`, `members_can_post`, `created_at` | The group's own fields |
+| `exam_date` | Plain day text like `"2099-12-15"`, or `null`. It is sent as text, so no time zone can move the day. |
+| `subject`, `level`, `leader` | Each as `{ id, name }`. `level` can be `null`. The leader's email is never sent. |
+| `member_count` | The active members, counting the leader. Worked out with Prisma's `_count`, never stored. |
+| `seats_left` | `max_size` minus `member_count`, never below 0 |
+| `my_role` | The viewer's own role: `leader`, `member`, or `null`. The frontend uses it to show an "Edit" or a "Join" button. |
+
+`is_flagged`, `institution_id`, and `deleted_at` are never sent.
+
+**The routes** (all start with `/api/v1`, all need a login):
+
+| Route | Success reply | Errors |
+|---|---|---|
+| `POST /groups` | `201`, the new group page with `my_role: "leader"` | `400` (bad field, extra field, past exam date, in-person without location), `401`, `404` (hidden or unknown subject or level), `429` (more than 10 per minute) |
+| `GET /groups/:id` | `200`, the group page | `401`, `404` (unknown, a word, removed, deleted, or archived for a non-member) |
+| `PATCH /groups/:id` | `200`, the new group page | `400` (bad field, empty body, past exam date, location rule), `401`, `403` (not the leader), `404`, `409` (size below the member count) |
+
+**The tests:**
+
+| File | Tests | What is proved |
+|---|---|---|
+| `src/groups/dto/groups-dto.spec.ts` (NEW) | 11 | A minimal valid body passes. Every missing required field is named. The title is trimmed, and a title of only spaces is refused. Sizes 2 and 30 pass, 1 and 31 fail. Only `online` and `in_person` pass. Only a real `YYYY-MM-DD` date passes. A subject id sent as text fails. In the edit DTO, `{}` passes the field checks, six fields refuse `null`, four fields accept `null`, and the size limits match. |
+| `src/groups/groups.controller.spec.ts` (NEW) | 3 | Each route passes the logged-in person's id (never a body value), the group id, and the body to the service. |
+| `test/groups.e2e-spec.ts` (NEW) | 14 | All three routes give `401` without a cookie. Create saves the group and exactly one leader row, with exactly the 17 safe keys. `leader_id`, `status`, and `is_flagged` in the body are refused and nothing is saved. The location and past-date rules give `400`. A hidden subject or level gives `404` and leaves no half-made rows. Another student sees the page with `my_role: null` and no email. Unknown, word, removed, and deleted ids give the same `404`. An archived group opens for its leader and gives `404` to others. The leader can edit, and the row really changes. An empty body gives `400`. A member and a stranger get `403` and nothing changes. A size below 3 active members gives `409`, and exactly 3 leaves `seats_left: 0`. The location rule holds when only the mode or only the location changes. An unchanged past exam date is accepted, and a new past date is refused. |
+
+The service has no unit test of its own. Its real work is the transaction, the member count, and the hidden-group rules, and these are proved best against the real test database.
+
+**Verify Step 59.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Lint | `npm run lint` | 0 errors. The 19 old warnings stay, and none is in a `groups` file. |
+| Unit tests | `npm test` | 185 tests pass in 21 suites |
+| E2E tests | `npm run test:e2e` | 62 tests pass in 6 suites, and the output names `studycircle_test` |
+| Real server | `npm run start:dev` | The three `Mapped {/api/v1/groups...}` lines appear |
+
+Commit: the 9 files above, with the subject `feat: add create, view, and edit routes for study groups.`
+
+## Known Limits of the Group Routes
+
+| Limit | Plain-English explanation |
+|---|---|
+| No group list or search yet | `GET /groups` with filters, sorting, and pages is week 4. |
+| No close, reopen, or archive yet | The status never changes through these routes. It comes with leaving, archiving, and the admin work. |
+| A closed or archived group can still be edited by its leader | Harmless for now. Decide later whether a closed group should be read-only. |
+| "Today" means the server's UTC date | Late at night in Bangladesh (UTC+6), UTC can still be yesterday, so the check is a little kind and never unfair. |
+| The leader's name is shown to every logged-in user | Only the name and id, the same as a public profile. The email is never sent. |
+| The admin cannot open a removed group yet | Admin views come in week 9. |
+| Members are added only by tests for now | Join requests and approvals are week 5. The e2e tests add members straight in the test database. |
+
+---
+
 ## Final Folder Structure (Just After NestJS Setup)
 
 This is the exact folder and file structure immediately after running the NestJS setup commands (Steps 1 to 7). A zipped copy of this repository matches this state. The tree represents the project state **just after the NestJS setup is complete**. Dependency contents are collapsed because `node_modules/` contains thousands of generated files. Git internals are also collapsed to keep the verification tree readable.
@@ -2330,6 +2440,27 @@ backend/
     └── lookups.e2e-spec.ts               (NEW: 4 tests for the two list routes)
 ```
 
+## Final Folder Structure (After Group Routes) (ADDED)
+
+This shows only what is **new or changed** after Part 12. Everything else stays as in the trees above. `package.json` did not change.
+
+```text
+backend/
+├── src/
+│   └── groups/
+│       ├── groups.constants.ts           (NEW: text limits, size range 2 to 30, six messages)
+│       ├── groups.module.ts              (CHANGED: lists GroupsController and GroupsService)
+│       ├── groups.service.ts             (NEW: createGroup, getGroup, updateGroup, safe select, reply shape)
+│       ├── groups.controller.ts          (NEW: POST /groups, GET /groups/:id, PATCH /groups/:id)
+│       ├── groups.controller.spec.ts     (NEW: 3 tests)
+│       └── dto/
+│           ├── create-group.dto.ts       (NEW)
+│           ├── update-group.dto.ts       (NEW)
+│           └── groups-dto.spec.ts        (NEW: 11 tests)
+└── test/
+    └── groups.e2e-spec.ts                (NEW: 14 tests for the three group routes)
+```
+
 ## Troubleshooting
 
 | Symptom | Cause | Action |
@@ -2411,6 +2542,14 @@ backend/
 | `npm run lint` shows `typescript(unbound-method)` warnings in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts` | Those tests pass `DemoController.prototype.<method>` to a fake context so the guard can read a route mark. The method is never called. | Safe to leave. They are warnings, not errors (Part 10, Step 57). Clean them up later as a separate small item. |
 | `GET /subjects` or `GET /levels` gives `{ "data": [] }` | No active rows exist. The development database may be empty, or every row is hidden (`is_active = false`). | Run `npm run seed` from `backend/`, or check `is_active` in DBeaver. An empty list is the correct reply, not a bug. |
 | A subject is in the database but not in `GET /subjects` | The subject is hidden (`is_active = false`). Hidden rows are left out on purpose. | Show it again in DBeaver (`UPDATE subjects SET is_active = true WHERE id = ...;`). The admin routes for this come in week 9. |
+| `POST /groups` gives `400`, `An in-person group needs a location` | `mode` is `in_person` and `location` is missing, empty, or only spaces. | Send a place, for example `"location": "Library room 2"`, or use `"mode": "online"`. |
+| `POST /groups` or `PATCH /groups/:id` gives `400`, `The exam date cannot be in the past` | The date is before today (by the server's UTC clock). | Send today or a later day, or `null` for no exam date. An old date that did not change is accepted on edit. |
+| `POST /groups` gives `400` with `exam_date must look like YYYY-MM-DD` | The date has a time part, slashes, or the day first. | Send only the day, for example `"exam_date": "2026-12-15"`. |
+| `POST /groups` gives `404`, `This subject does not exist` or `This level does not exist` | The id is unknown, or the subject or level is hidden. | Pick an id from `GET /subjects` or `GET /levels`. |
+| `PATCH /groups/:id` gives `403`, `Only the group leader can do this` | The person is a member or a stranger, not the leader. | Log in as the leader. The leader is read from `groups.leader_id`. |
+| `PATCH /groups/:id` gives `409`, `The group already has more members than this size` | The new `max_size` is smaller than the number of active members (the leader counts too). | Pick a size at least as big as `member_count` on the group page. |
+| `GET /groups/:id` gives `404` for a group that is in the database | The group is removed, deleted (`deleted_at` is filled), or archived and the person is not an active member. | Check `status`, `deleted_at`, and `group_members` in DBeaver. This is on purpose. |
+| `POST /groups` gives `429` | More than 10 groups in one minute from one address. | Wait 60 seconds. The reply has a `Retry-After` header. |
 
 ## Quick Cheat Sheet
 
@@ -2461,6 +2600,10 @@ backend/
 | Run only the subject and level e2e tests | `npm run test:e2e -- lookups.e2e-spec` |
 | See the active subjects (Postman, logged in) | `GET http://localhost:3000/api/v1/subjects` |
 | See the active levels (Postman, logged in) | `GET http://localhost:3000/api/v1/levels` |
+| Run only the group e2e tests | `npm run test:e2e -- groups.e2e-spec` |
+| Create a group (Postman, logged in) | `POST http://localhost:3000/api/v1/groups` with `title`, `subject_id`, `description`, `mode`, `max_size` |
+| See one group (Postman, logged in) | `GET http://localhost:3000/api/v1/groups/1` |
+| Edit a group as its leader (Postman, logged in) | `PATCH http://localhost:3000/api/v1/groups/1` with only the fields that change |
 
 ## Rules to Never Forget
 
@@ -2544,3 +2687,8 @@ backend/
 - Copy allowed fields into a Prisma `data` object one by one. Never spread a DTO into a query.
 - Every error test needs a matching success test, so a test cannot pass for the wrong reason.
 - Lists of choices (subjects, levels) send only active rows and only the fields a dropdown needs. A hidden row must act as if it does not exist everywhere.
+- A group's leader always comes from the login cookie on create, and from `groups.leader_id` in the database on edit. Never accept a leader id in the body.
+- The group row and the leader's `group_members` row are created in one transaction. Never create one without the other.
+- Every change to a group's size runs in a Serializable transaction that counts the active members first.
+- A removed group, a deleted group, and an archived group for a non-member all give the same `404` as an unknown id.
+- Dates with no time (like `exam_date`) are received and sent as `YYYY-MM-DD` text, so no time zone can move the day.
