@@ -14,11 +14,14 @@ import { Public } from '../decorators/public.decorator';
 import { JwtAuthGuard, UNAUTHENTICATED_MESSAGE } from './jwt-auth.guard';
 
 // a tiny demo class with one public method and one locked method.
+// the tests never call these methods. they only hand them to the fake context, so the guard can read the @Public() mark.
+// "this: void" says the method never uses "this". so passing the method around on its own (DemoController.prototype.open)
+// is safe, and the lint rule "unbound-method" has nothing to warn about.
 class DemoController {
   @Public()
-  open(): void {}
+  open(this: void): void {}
 
-  closed(): void {}
+  closed(this: void): void {}
 }
 
 // the shape of a fake request in these tests.
