@@ -1,10 +1,10 @@
 # StudyCircle — Backend Setup (NestJS + Prisma + PostgreSQL)
 
-**Last updated:** 20 November 2026
+**Last updated:** 21 November 2026
 
 ## What Changed in This Version
 
-This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes (tracker item 23), with the first separate update DTO (tracker item 61), a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9.
+This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message.
 
 | Type | What | Where in this file |
 |---|---|---|
@@ -14,11 +14,13 @@ This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 5
 | ADDED | Part 10: the profile service methods, the safe select lists and reply shapes, and the Serializable transaction for adding a subject | Part 10, Step 54 |
 | ADDED | Part 10: `users.controller.ts` with five locked routes | Part 10, Step 55 |
 | ADDED | Part 10: the new unit and e2e tests, the login helper, the Postman round 2, and the checks | Part 10, Step 56 |
+| ADDED | Part 10: `@CurrentUser()` uses the shared `UNAUTHENTICATED_MESSAGE`, the guard uses a type-only import, a new decorator spec, and the dropped `auth.e2e-spec.ts` cleanup | Part 10, Step 57 |
 | ADDED | Known limits of the profile routes | Part 10, end |
+| REMOVED | Two known-limit rows (the lowercase decorator message, and the `auth.e2e-spec.ts` cookie helpers), because Step 57 settled both | Known Limits of the Profile Routes |
 | ADDED | Folder tree after the profile routes | Final Folder Structure (After Profile Routes) |
 | ADDED | Troubleshooting rows, cheat sheet rows, and rules for the profile routes | Troubleshooting, Quick Cheat Sheet, Rules to Never Forget |
 | CHANGED | `register.dto.ts` now uses the shared limits and turns an empty `department` into `null` | Part 10, Step 52 |
-| UPDATED | The unit test count is now 163 in 16 suites (it was 114 in 12). The e2e count is now 44 in 4 suites (it was 20 in 3) | Part 10, Step 56 |
+| UPDATED | The unit test count is now 165 in 17 suites (it was 114 in 12, and 163 in 16 after Step 56). The e2e count is now 44 in 4 suites (it was 20 in 3) | Part 10, Steps 56 and 57 |
 | UPDATED | The API shape file is now `studycircle_api_shape_v6.md` | Whole file |
 | UPDATED | The "What This Setup Produces" table counts the new files | What This Setup Produces |
 
@@ -677,7 +679,7 @@ Run these checks:
 Checks that need a real route:
 - Send a body with a snake_case key. It must reach the code as camelCase and be validated. **Done:** the auth e2e test sends `academic_year` on register (Step 47).
 - Send a body with a field that the DTO does not list. It must give a 400 with an `errors` item. **Done:** the auth e2e test sends `role` on register (Step 47).
-- Break each of the two partial indexes (a second pending join request, a second active leader) with a real request. Check which database code comes back. The map above expects `P2002` and a 409 reply. **Still open:** it needs the join request and leadership routes (week 5, tracker item 57).
+- Break each of the two partial indexes (a second pending join request, a second active leader) with a real request. Check which database code comes back. The map above expects `P2002` and a 409 reply. **Still open:** it needs the join request and leadership routes (week 5).
 
 ---
 
@@ -840,7 +842,7 @@ These files create the fake data. Each one has one job.
 7. Prisma Client fills `updated_at` by itself. Raw SQL would need to supply it.
 8. All data is fake. No real person is used.
 
-**Not seeded yet:** `group_files`, `refresh_tokens`, `notifications`, `reports`, and `admin_actions`. The `group_files` rows need real files on disk. The team decided that files are saved on the server disk behind one small file service. That service is built in week 7, so these rows are added then. The other four fill up when their features are built. Update the seed in week 11 (tracker item 42).
+**Not seeded yet:** `group_files`, `refresh_tokens`, `notifications`, `reports`, and `admin_actions`. The `group_files` rows need real files on disk. The team decided that files are saved on the server disk behind one small file service. That service is built in week 7, so these rows are added then. The other four fill up when their features are built. Update the seed in week 11.
 
 **When you change the group plan in `seed-groups.ts`:** also change `EXPECTED_GROUPS` in `verify.ts`, or the group count check fails.
 
@@ -1073,7 +1075,7 @@ Then check the databases in DBeaver:
 
 Also run `git status` from the repository root. It must not show `.env`, `node_modules/`, or anything in `src/generated/`.
 
-**Known gap (solved in Part 8).** E2E tests used to build the app from `AppModule` and skip `main.ts`, so the `/api/v1` prefix, the global pipes, the interceptor, the filter, the cookie reader, and CORS were not active in tests. This was tracker item 51. The team chose one shared setup function (option a). Since Part 8, `main.ts` and the e2e tests both call `configureApp()` from `src/app.setup.ts`, and every e2e test builds its app with `createTestApp()`. See Steps 45 and 46.
+**Known gap (solved in Part 8).** E2E tests used to build the app from `AppModule` and skip `main.ts`, so the `/api/v1` prefix, the global pipes, the interceptor, the filter, the cookie reader, and CORS were not active in tests. The team chose one shared setup function (option a). Since Part 8, `main.ts` and the e2e tests both call `configureApp()` from `src/app.setup.ts`, and every e2e test builds its app with `createTestApp()`. See Steps 45 and 46.
 
 # Part 6 — Dependency Audit Review (ADDED)
 
@@ -1173,7 +1175,7 @@ Known issues: npm audit reports 20 low and moderate findings, all in the Jest te
 
 **What problem this solves:** a study group platform is only safe when the server knows who is calling. Without login, anyone could join a group, read private chat, or pretend to be a leader. This part adds sign-up, login, logout, and a lock on every route, so the later group, chat, and admin features can trust "who is this person".
 
-> **Status (17 November 2026):** the code in this part is written, committed, and checked. `npx tsc --noEmit` is clean and `npm run build` has no errors. `npm test` passes 111 tests in 12 suites (it was 38). `npm run test:e2e` passes 4 tests in 2 suites. The rate limit was tested by hand (5 wrong logins give `401`, then `429` with a `Retry-After` header). A Postman and DBeaver round of 19 screenshots is saved in `screenshots/postman_manual_api_testing/` at the repository root. The open item at that time (tracker item 51, the e2e tests skipped `main.ts`) is solved in Part 8, and the auth routes now have 15 e2e tests (20 e2e tests in 3 suites in total).
+> **Status (17 November 2026):** the code in this part is written, committed, and checked. `npx tsc --noEmit` is clean and `npm run build` has no errors. `npm test` passes 111 tests in 12 suites (it was 38). `npm run test:e2e` passes 4 tests in 2 suites. The rate limit was tested by hand (5 wrong logins give `401`, then `429` with a `Retry-After` header). A Postman and DBeaver round of 19 screenshots is saved in `screenshots/postman_manual_api_testing/` at the repository root. The open item at that time (the e2e tests skipped `main.ts`) is solved in Part 8, and the auth routes now have 15 e2e tests (20 e2e tests in 3 suites in total).
 
 **Part 7 did not change `tsconfig.json`, `prisma.config.ts`, the schema, or any migration.** Passport is **not** used. The login check is a small custom guard, so there is one less package to learn and audit.
 
@@ -1437,7 +1439,7 @@ These are known and accepted for the MVP. Write the important ones in the README
 
 **Part 8 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `package.json`, or `package-lock.json`.** No new packages were installed. `supertest` and `@types/supertest` were already in the scaffold.
 
-## Step 44 — Housekeeping Check (Tracker Item 54)
+## Step 44 — Housekeeping Check
 
 Three small checks, all run from `backend/`.
 
@@ -1536,7 +1538,7 @@ Note: a rule with a trailing `/` (like `coverage/`) matches only a folder. If th
 
 Commit: `backend/.gitignore` only.
 
-## Step 45 — Share the App Setup (Tracker Item 51)
+## Step 45 — Share the App Setup
 
 **The problem.** An e2e test builds the app with `Test.createTestingModule({ imports: [AppModule] })` and `createNestApplication()`. That skips `main.ts`, so every line there was missing in tests:
 
@@ -1659,7 +1661,7 @@ Prisma may print an "Update available 7.10.1 -> 8.0.0-rc..." box during the e2e 
 
 **Part 9 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, the throttler settings, `package.json`, or `package-lock.json`.** No new packages were installed. The 3-month plan and the schema file needed no change.
 
-## Step 49 — Send a Plain Sentence for the 429 Reply (Tracker Item 53)
+## Step 49 — Send a Plain Sentence for the 429 Reply
 
 **Where the old message came from:**
 1. The `ThrottlerGuard` counts the calls. On the 6th login in one minute, it puts the `Retry-After` header on the reply, then throws a `ThrottlerException`. That is a normal NestJS `HttpException` with status `429` and the text `ThrottlerException: Too Many Requests`.
@@ -1670,7 +1672,7 @@ Prisma may print an "Update available 7.10.1 -> 8.0.0-rc..." box during the e2e 
 
 | Option | Summary | Verdict |
 |---|---|---|
-| **1. Fix it in the exception filter (chosen)** | In case 1 of `describe()`, any `429` uses `DEFAULT_MESSAGES[429]`. | All error wording stays in one place, the filter. It is a small change, it is easy to unit test, and it also covers the later rate limits on join requests, uploads, and chat messages (tracker item 58). |
+| **1. Fix it in the exception filter (chosen)** | In case 1 of `describe()`, any `429` uses `DEFAULT_MESSAGES[429]`. | All error wording stays in one place, the filter. It is a small change, it is easy to unit test, and it also covers the later rate limits on join requests, uploads, and chat messages. |
 | 2. Set `errorMessage` in the throttler settings | `@nestjs/throttler` has an `errorMessage` option, but only in the object form of `ThrottlerModule.forRoot()`, not in the array form used in `app.module.ts`. | It would change the rate limit setup just to change a sentence, and the wording would live in two places. |
 
 The one cost of option 1: if a service ever throws its own `429` with a special message, the filter replaces it with the plain sentence. No code does that today.
@@ -1731,7 +1733,9 @@ Commit: `auth.service.ts`, `guards/jwt-auth.guard.ts`, `auth.controller.ts`, `au
 
 **What problem this solves:** step 2 of the main journey is "the student fills a short profile". When a student asks to join a group, the leader needs to see who is asking: a name, a department, a year, a short bio, and the subjects the student cares about. Without a profile, a leader would approve strangers blindly, and the platform would fall back to the "messy social media group" problem. This part lets each student build and edit their own profile, and lets other logged-in students see a safe public version of it, with no email and nothing that reveals a hidden account.
 
-> **Status (20 November 2026):** the work in this part is written, committed, and checked (tracker item 23). `npx tsc --noEmit` prints nothing and `npm run build` has no errors. `npm test` passes 163 tests in 16 suites (it was 114 in 12). `npm run test:e2e` passes 44 tests in 4 suites (it was 20 in 3), and the output names `studycircle_test`. `npm run start:dev` still works, the five new routes appear in the start-up log, and `GET http://localhost:3000/api/v1` still gives `{"data":"Hello World!"}`. A Postman round of 10 screenshots (tests 20 to 29) passed, and the two seed students used in it were put back and checked in DBeaver. `git diff -- package.json` printed nothing. The development database kept its demo data.
+> **Status (20 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing and `npm run build` has no errors. `npm test` passes 163 tests in 16 suites (it was 114 in 12). `npm run test:e2e` passes 44 tests in 4 suites (it was 20 in 3), and the output names `studycircle_test`. `npm run start:dev` still works, the five new routes appear in the start-up log, and `GET http://localhost:3000/api/v1` still gives `{"data":"Hello World!"}`. A Postman round of 10 screenshots (tests 20 to 29) passed, and the two seed students used in it were put back and checked in DBeaver. `git diff -- package.json` printed nothing. The development database kept its demo data.
+
+> **Update (21 November 2026):** Step 57 is written, committed, and checked. `npm test` now passes 165 tests in 17 suites. `npm run test:e2e` still passes 44 tests in 4 suites.
 
 **Part 10 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. Email change and password change are **not** part of this part. They belong in the auth module later, because they touch login details and tokens.
 
@@ -1778,7 +1782,7 @@ The register form and the profile edit form must never disagree, so their rules 
 
 | File | What it does |
 |---|---|
-| `src/users/dto/update-profile.dto.ts` (NEW) | The `PATCH /users/me` body. It lists **only** `name`, `department`, `academicYear`, and `bio`, all optional. It does **not** list `email`, `role`, `status`, `password`, or `id`, so the validation pipe refuses them with `400`. This is the first separate update DTO (tracker item 61). |
+| `src/users/dto/update-profile.dto.ts` (NEW) | The `PATCH /users/me` body. It lists **only** `name`, `department`, `academicYear`, and `bio`, all optional. It does **not** list `email`, `role`, `status`, `password`, or `id`, so the validation pipe refuses them with `400`. This is the first separate update DTO. |
 | `src/users/dto/add-subject.dto.ts` (NEW) | The `POST /users/me/subjects` body: `subjectId`, a whole number from 1 to `MAX_INT_ID`. The client sends `subject_id`. A text like `"5"` is refused. |
 | `src/common/pipes/parse-id.pipe.ts` (NEW, + spec) | Turns an id from the address into a safe number. Anything that can never be a row id gives `404` with the message the route chooses. |
 | `src/users/dto/users-dto.spec.ts` (NEW) | Unit tests for both DTOs. One test runs the real validation pipe and proves `property role should not exist`. |
@@ -1870,7 +1874,7 @@ The register form and the profile edit form must never disagree, so their rules 
 |---|---|---|
 | Types | `npx tsc --noEmit` | Prints nothing |
 | Build | `npm run build` | No errors |
-| Unit tests | `npm test` | 163 tests pass in 16 suites |
+| Unit tests | `npm test` | 163 tests pass in 16 suites (165 in 17 after Step 57) |
 | E2E tests | `npm run test:e2e` | 44 tests pass in 4 suites, and the output names `studycircle_test` |
 | Real server | `npm run start:dev` | The five `Mapped {/api/v1/users/...}` lines appear, and `http://localhost:3000/api/v1` gives `{"data":"Hello World!"}` |
 | Postman | Tests 20 to 29 in `postman_manual_api_tests.md` | All pass. The screenshots are `20-profile-own-success.png` to `29-profile-own-no-login-401.png` |
@@ -1879,15 +1883,49 @@ The register form and the profile edit form must never disagree, so their rules 
 
 **Commits:** one for the profile code (11 files) and one for the profile tests (7 files), then one per Postman screenshot.
 
+## Step 57 — Use the Shared Login Message in @CurrentUser()
+
+**What problem this solves:** the "please log in" reply must look the same everywhere. If a future route forgets its guard, the student still gets the same clean, capital-letter sentence as on every other route, and the code keeps only one copy of the text.
+
+**The problem.** `current-user.decorator.ts` threw its own text, `please log in to continue`, when no person was on the request. The guard uses `UNAUTHENTICATED_MESSAGE` (`Please log in to continue`). So the code had two copies of the same message, and one copy broke the capital-letter rule from Part 9. The fallback fires only when a route misses its guard, so no user saw it.
+
+**The files:**
+
+| File | Change |
+|---|---|
+| `src/auth/decorators/current-user.decorator.ts` (CHANGED) | Imports `UNAUTHENTICATED_MESSAGE` from the guard and throws it. The inner function is now a named export, `currentUserFactory`, and `CurrentUser` is built from it with `createParamDecorator(currentUserFactory)`. |
+| `src/auth/guards/jwt-auth.guard.ts` (CHANGED) | `import { AuthUser }` became `import type { AuthUser }`. Nothing else changed. |
+| `src/auth/decorators/current-user.decorator.spec.ts` (NEW) | 2 tests: the function gives back the person that the guard put on the request, and with no person it throws an `UnauthorizedException` with status `401` and exactly `UNAUTHENTICATED_MESSAGE`. |
+
+**Why `currentUserFactory` is exported:** a finished decorator made by `createParamDecorator` cannot be called like a normal function in a test. Exporting the inner function lets a unit test call it with a small fake context. Docs: https://docs.nestjs.com/custom-decorators
+
+**Why `import type` in the guard:** the decorator now imports a value from the guard, and the guard imports `AuthUser` from the decorator. Two files that import each other can load in a loop, and then one value can be `undefined` at start-up. `AuthUser` is only a type, and TypeScript drops type-only imports from the built code, so the loop never happens at run time. `import type` writes that promise into the code, so a later edit cannot break it by accident. Docs: https://www.typescriptlang.org/docs/handbook/modules/reference.html#type-only-imports-and-exports
+
+**The optional cleanup that was dropped.** `test/auth.e2e-spec.ts` could have used `test/support/login-helper.ts`. It was checked and not done:
+1. The helper gives back only the user id and the access cookie. Most auth tests also need the refresh cookie, the full `Set-Cookie` lines (to check `HttpOnly` and `Path`), and the raw reply.
+2. Only 2 of the 15 auth tests could use it. The other tests still need `findCookieLine`, `cookieValue`, `hasCookieSetting`, and `loginStudent`, so nothing would be deleted, and the file would mix two login styles.
+3. The auth tests check the login route itself, so their own detailed login code is on purpose.
+
+**Verify Step 57.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Lint | `npm run lint` | 0 errors. The 19 `unbound-method` warnings are older, in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts`, and are not part of this step. |
+| Unit tests | `npm test` | 165 tests pass in 17 suites (it was 163 in 16) |
+| E2E tests | `npm run test:e2e` | 44 tests pass in 4 suites (no change), and the output names `studycircle_test` |
+
+**About the 19 lint warnings:** those tests pass a method like `DemoController.prototype.closed` to a fake context, only so the guard can read the `@Public()` or `@Roles()` mark on it. The method is never called, so the "may lose `this`" risk cannot happen there. They can be cleaned up later as a separate small item.
+
+Commit: the three files above, with the subject `fix: use the shared login message in the current user decorator.`
+
 ## Known Limits of the Profile Routes
 
 | Limit | Plain-English explanation |
 |---|---|
 | Any logged-in user can read any active student's public profile | Ids are numbers, so profiles can be read one by one. The public view holds only safe fields, so this is accepted for now. When groups exist, the rule could become "share a group, or have a pending request to my group". |
 | Odd id spellings count as ids | After the global pipe, `007` becomes 7 and `1e3` becomes 1000. Every bad case still gives `404`, never a `500`. |
-| `current-user.decorator.ts` has a lowercase message | Its fallback `401` text is `please log in to continue`. It only fires if a route misses its guard, so no user sees it today. A one-line fix (import `UNAUTHENTICATED_MESSAGE` from the guard) is an open small item. |
-| No route lists the subjects a person can pick | The frontend will need it for the subject picker. It fits with subjects and levels (tracker item 26). |
-| `auth.e2e-spec.ts` keeps its own cookie helpers | It could use `login-helper.ts` too. This is a small optional cleanup. |
+| No route lists the subjects a person can pick | The frontend will need it for the subject picker. It fits with the later subjects and levels work. |
 
 ---
 
@@ -2156,7 +2194,7 @@ backend/
 
 ## Final Folder Structure (After Profile Routes) (ADDED)
 
-This shows only what is **new or changed** after Part 10. Everything else stays as in the trees above. `package.json` did not change.
+This shows only what is **new or changed** after Part 10, including Step 57. Everything else stays as in the trees above. `package.json` did not change.
 
 ```text
 studycircle-peer_study_group_finder/
@@ -2165,8 +2203,13 @@ studycircle-peer_study_group_finder/
 └── backend/
     ├── src/
     │   ├── auth/
-    │   │   └── dto/
-    │   │       └── register.dto.ts           (CHANGED: shared limits and helpers, empty department becomes null)
+    │   │   ├── decorators/
+    │   │   │   ├── current-user.decorator.ts       (CHANGED in Step 57: shared message, exported currentUserFactory)
+    │   │   │   └── current-user.decorator.spec.ts  (NEW in Step 57: 2 tests)
+    │   │   ├── dto/
+    │   │   │   └── register.dto.ts           (CHANGED: shared limits and helpers, empty department becomes null)
+    │   │   └── guards/
+    │   │       └── jwt-auth.guard.ts         (CHANGED in Step 57: type-only import of AuthUser)
     │   ├── common/
     │   │   ├── constants/
     │   │   │   ├── database-limits.ts        (NEW: MAX_INT_ID)
@@ -2272,6 +2315,7 @@ studycircle-peer_study_group_finder/
 | `POST /users/me/subjects` gives `400` with `subject_id must be an integer number` | The id was sent as text, like `"5"`. | Send a JSON number: `{ "subject_id": 5 }`. |
 | A public profile gives `404` for a student who exists | The account is suspended or deleted. This is on purpose, and the reply is the same as for an unknown id. | Check `status` and `deleted_at` in DBeaver. Restore the account if it was suspended for a test. |
 | An e2e test that expects `404` passes, but the route is broken | An error test can pass for the wrong reason when everything gives the same error. | Pair every error test with a success test on the same route. |
+| `npm run lint` shows `typescript(unbound-method)` warnings in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts` | Those tests pass `DemoController.prototype.<method>` to a fake context so the guard can read a route mark. The method is never called. | Safe to leave. They are warnings, not errors (Part 10, Step 57). Clean them up later as a separate small item. |
 
 ## Quick Cheat Sheet
 
@@ -2283,6 +2327,7 @@ studycircle-peer_study_group_finder/
 | Install packages from the lock file (fresh clone) | `npm ci` |
 | Start the development server | `npm run start:dev` |
 | Build the backend | `npm run build` |
+| Check the code style (oxlint, changes no files) | `npm run lint` |
 | Run unit tests | `npm test` |
 | Run end-to-end tests (builds `studycircle_test` from the migrations first, then runs) | `npm run test:e2e` |
 | Run only the auth e2e tests | `npm run test:e2e -- auth.e2e-spec` |
@@ -2387,6 +2432,9 @@ studycircle-peer_study_group_finder/
 - The Prisma skill folders (`.agents`, `.claude`, `.windsurf`) and `skills-lock.json` are not committed. `backend/.gitignore` blocks them.
 - Every top-level error `message` starts with a capital letter and is a plain sentence that is safe to show on screen. Field messages inside `errors` start with the snake_case field name.
 - Write each error message once, as a constant, and import it where it is needed. Never type the same message text in two code files. (The e2e tests are the one exception: they write messages out in full on purpose.)
+- Every `401` for "not logged in" uses `UNAUTHENTICATED_MESSAGE` from `jwt-auth.guard.ts`, including the fallback in `@CurrentUser()`.
+- When two files import from each other and one side needs only a type, use `import type` on that side, so the two files never load each other in a loop.
+- Export the inner function of a custom decorator (like `currentUserFactory`), so a unit test can call it directly.
 - Every `429` reply gets its sentence from the exception filter. Do not set the message in the throttler settings, so the wording stays in one place.
 - Every route that changes a person's own data uses `me` in the address and takes the user id from `@CurrentUser()`. Never accept a user id in the body or the address for "my own" changes.
 - A public profile never shows `email`, `role`, `status`, or `password_hash`. A suspended or deleted person is hidden from every public view with the same `404` as an unknown id.
