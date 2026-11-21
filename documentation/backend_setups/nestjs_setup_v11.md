@@ -4,7 +4,7 @@
 
 ## What Changed in This Version
 
-This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message.
+This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message. Part 11 (Step 58) adds the read routes for the active subjects and levels.
 
 | Type | What | Where in this file |
 |---|---|---|
@@ -15,12 +15,15 @@ This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 5
 | ADDED | Part 10: `users.controller.ts` with five locked routes | Part 10, Step 55 |
 | ADDED | Part 10: the new unit and e2e tests, the login helper, the Postman round 2, and the checks | Part 10, Step 56 |
 | ADDED | Part 10: `@CurrentUser()` uses the shared `UNAUTHENTICATED_MESSAGE`, the guard uses a type-only import, a new decorator spec, and the dropped `auth.e2e-spec.ts` cleanup | Part 10, Step 57 |
+| ADDED | Part 11: `GET /subjects` and `GET /levels` in a new `lookups` module, the decisions, the tests, and the known limits | Part 11, Step 58 |
 | ADDED | Known limits of the profile routes | Part 10, end |
 | REMOVED | Two known-limit rows (the lowercase decorator message, and the `auth.e2e-spec.ts` cookie helpers), because Step 57 settled both | Known Limits of the Profile Routes |
+| REMOVED | The known-limit row "No route lists the subjects a person can pick", because Step 58 added that route | Known Limits of the Profile Routes |
 | ADDED | Folder tree after the profile routes | Final Folder Structure (After Profile Routes) |
+| ADDED | Folder tree after the subject and level lists | Final Folder Structure (After Subject and Level Lists) |
 | ADDED | Troubleshooting rows, cheat sheet rows, and rules for the profile routes | Troubleshooting, Quick Cheat Sheet, Rules to Never Forget |
 | CHANGED | `register.dto.ts` now uses the shared limits and turns an empty `department` into `null` | Part 10, Step 52 |
-| UPDATED | The unit test count is now 165 in 17 suites (it was 114 in 12, and 163 in 16 after Step 56). The e2e count is now 44 in 4 suites (it was 20 in 3) | Part 10, Steps 56 and 57 |
+| UPDATED | The unit test count is now 171 in 19 suites (it was 114 in 12, 163 in 16 after Step 56, and 165 in 17 after Step 57). The e2e count is now 48 in 5 suites (it was 20 in 3, and 44 in 4 after Step 56) | Part 10, Steps 56 and 57, and Part 11, Step 58 |
 | UPDATED | The API shape file is now `studycircle_api_shape_v6.md` | Whole file |
 | UPDATED | The "What This Setup Produces" table counts the new files | What This Setup Produces |
 
@@ -30,11 +33,11 @@ StudyCircle is a peer study group finder platform maintained as one monorepo. Th
 
 | Location | Purpose | Final state |
 |---|---|---|
-| `backend/` | NestJS and TypeScript backend | Scaffolded, installed, runnable, connected to PostgreSQL through Prisma, with the shared API layer, one shared app setup function, the auth layer, the profile routes, six feature modules, a seed script, and a test database setup for e2e tests |
+| `backend/` | NestJS and TypeScript backend | Scaffolded, installed, runnable, connected to PostgreSQL through Prisma, with the shared API layer, one shared app setup function, the auth layer, the profile routes, the subject and level lists, six feature modules and the `lookups` module, a seed script, and a test database setup for e2e tests |
 | `backend/prisma/` | Prisma schema, migrations, and the seed script | 17 tables, 10 enums, 2 migrations, and `seed.ts` with 11 helper files in `seed/` |
 | `backend/src/common/` | Shared fixed words, helpers, pipes, interceptor, and filter | 20 files that apply the API shape rules (15 from Part 3, and 5 from Part 10: `database-limits.ts`, the text helpers, and the safe id pipe, each with its spec where it has one) |
 | `backend/src/app.setup.ts` | The shared app setup | One function, `configureApp()`, used by `main.ts` and the e2e tests |
-| `backend/test/` | End-to-end tests and the test database setup | 1 app setup test file, 1 database check test file, 1 auth test file, 1 users test file, and 6 support files in `support/` |
+| `backend/test/` | End-to-end tests and the test database setup | 1 app setup test file, 1 database check test file, 1 auth test file, 1 users test file, 1 lookups test file, and 6 support files in `support/` |
 | `frontend/` | Planned Next.js frontend with React 19, TypeScript, and Tailwind CSS | Empty placeholder folder |
 | `documentation/` | Project documentation | Contains this setup reference |
 | `.git/` | Monorepo Git metadata | At the repository root only |
@@ -1925,7 +1928,79 @@ Commit: the three files above, with the subject `fix: use the shared login messa
 |---|---|
 | Any logged-in user can read any active student's public profile | Ids are numbers, so profiles can be read one by one. The public view holds only safe fields, so this is accepted for now. When groups exist, the rule could become "share a group, or have a pending request to my group". |
 | Odd id spellings count as ids | After the global pipe, `007` becomes 7 and `1e3` becomes 1000. Every bad case still gives `404`, never a `500`. |
-| No route lists the subjects a person can pick | The frontend will need it for the subject picker. It fits with the later subjects and levels work. |
+
+---
+
+# Part 11 — Subject and Level Lists (ADDED)
+
+**What problem this solves:** a student who creates a group must pick a subject and a level, and a student who edits a profile must pick subjects of interest. Both forms need dropdowns filled with the real lists. Without these routes, the frontend would have to type the lists by hand, and a subject the admin hides would still be offered. These two routes give the frontend the live lists, so every choice a student makes is a real, active one.
+
+> **Status (21 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings are unchanged, and none is in a `lookups` file). `npm test` passes 171 tests in 19 suites (it was 165 in 17). `npm run test:e2e` passes 48 tests in 5 suites (it was 44 in 4), and the output names `studycircle_test`.
+
+**Part 11 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. Only `app.module.ts` changed, to list the new module.
+
+## Step 58 — Add the Subject and Level Routes
+
+A **lookup** is a short, fixed list of choices that the app reads from but that students never create. StudyCircle has two: subjects and levels. Only the admin adds, edits, or hides them (week 9).
+
+**The decisions:**
+
+| # | Question | Decision | Why |
+|---|---|---|---|
+| 1 | Where does the code live? | A new module, `src/lookups/` | Groups and profiles both use the lists, so they belong to neither. The seed already uses the same name (`seed-lookups.ts`). |
+| 2 | Who may read the lists? | Logged-in users only. There is no `@Public()`. | The register form does not need them. Every route is locked by default. |
+| 3 | Which rows are sent? | Only rows with `is_active = true` | A hidden subject or level must act as if it does not exist, the same rule as on profiles. |
+| 4 | Which fields are sent? | Subjects: `id`, `name`, `category`, `course_code`. Levels: `id`, `name`, `description`. | A dropdown needs nothing else. `is_active`, `sort_order`, and the dates stay on the server. |
+| 5 | In which order? | Subjects by `name` (a to z). Levels by `sort_order`, then `id`. | The dropdown looks the same every time. The admin chooses the level order (beginner, intermediate, advanced). |
+| 6 | Paging? | None. The reply is `{ "data": [...] }`, with no `meta` block. | The lists are small (12 subjects and 3 levels in the seed). |
+
+**The files:**
+
+| File | What it does |
+|---|---|
+| `src/lookups/lookups.service.ts` (NEW, + spec) | `SUBJECT_OPTION_SELECT` and `LEVEL_OPTION_SELECT` list the safe fields. `listActiveSubjects()` and `listActiveLevels()` read the active rows in the fixed order. It only reads. |
+| `src/lookups/lookups.controller.ts` (NEW, + spec) | `@Controller()` with no name, so the routes sit right after `/api/v1`. Two thin `GET` routes that call the service. |
+| `src/lookups/lookups.module.ts` (NEW) | Lists the controller and the service. It does not import `PrismaModule`, because that module is global. |
+| `src/app.module.ts` (CHANGED) | Imports `LookupsModule`. |
+| `test/lookups.e2e-spec.ts` (NEW) | 4 e2e tests (below). |
+
+**The routes** (both start with `/api/v1`, both need a login):
+
+| Route | Success reply | Errors |
+|---|---|---|
+| `GET /subjects` | `200`, `{ "data": [{ "id", "name", "category", "course_code" }, ...] }`, active subjects only, sorted by name | `401` without a login |
+| `GET /levels` | `200`, `{ "data": [{ "id", "name", "description" }, ...] }`, active levels only, in sort order | `401` without a login |
+
+An empty list gives `200` with `{ "data": [] }`, never an error, so the frontend can show an empty state.
+
+**The tests:**
+
+| File | Tests | What is proved |
+|---|---|---|
+| `src/lookups/lookups.service.spec.ts` (NEW) | 4 | Each method sends exactly the right query (active only, the right order, the safe select list) and gives back the rows unchanged. Two tests check that each select list holds only the dropdown fields, so a field added later forces a decision. |
+| `src/lookups/lookups.controller.spec.ts` (NEW) | 2 | Each route gives back the service result unchanged. |
+| `test/lookups.e2e-spec.ts` (NEW) | 4 | Both routes give `401` without a cookie. Subjects and levels come back active only, in the right order, with exactly the expected snake_case keys (the rows are created out of order on purpose, and a hidden row sits between them). With no rows, both give `{ "data": [] }`. |
+
+The unit tests use small hand-written fakes instead of `jest.fn()`. Each fake saves the arguments of every call, so a test can check the exact query.
+
+**Verify Step 58.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Lint | `npm run lint` | 0 errors. The 19 old warnings stay, and none is in a `lookups` file. |
+| Unit tests | `npm test` | 171 tests pass in 19 suites |
+| E2E tests | `npm run test:e2e` | 48 tests pass in 5 suites, and the output names `studycircle_test` |
+| Postman (optional) | Log in, then `GET http://localhost:3000/api/v1/subjects` and `GET http://localhost:3000/api/v1/levels` | `200`. With the seed data: 12 subjects sorted by name and 3 levels (Beginner, Intermediate, Advanced). |
+
+Commit: the 7 files above, with the subject `feat: add read routes for the active subjects and levels.`
+
+## Known Limits of the Subject and Level Lists
+
+| Limit | Plain-English explanation |
+|---|---|
+| The lists have no paging | Every active row is sent at once. That is fine for a few dozen subjects. If the admin ever adds hundreds, add paging or a search box later. |
+| No admin routes yet | Adding, editing, and hiding subjects and levels is built with the admin panel in week 9. Until then, the seed fills the lists. |
 
 ---
 
@@ -2237,6 +2312,24 @@ studycircle-peer_study_group_finder/
             └── login-helper.ts               (NEW: registers and logs in, gives the id and the cookie)
 ```
 
+## Final Folder Structure (After Subject and Level Lists) (ADDED)
+
+This shows only what is **new or changed** after Part 11. Everything else stays as in the trees above. `package.json` did not change.
+
+```text
+backend/
+├── src/
+│   ├── app.module.ts                     (CHANGED: imports LookupsModule)
+│   └── lookups/
+│       ├── lookups.module.ts             (NEW: lists the controller and the service)
+│       ├── lookups.service.ts            (NEW: safe select lists, listActiveSubjects, listActiveLevels)
+│       ├── lookups.service.spec.ts       (NEW: 4 tests)
+│       ├── lookups.controller.ts         (NEW: GET /subjects and GET /levels)
+│       └── lookups.controller.spec.ts    (NEW: 2 tests)
+└── test/
+    └── lookups.e2e-spec.ts               (NEW: 4 tests for the two list routes)
+```
+
 ## Troubleshooting
 
 | Symptom | Cause | Action |
@@ -2316,6 +2409,8 @@ studycircle-peer_study_group_finder/
 | A public profile gives `404` for a student who exists | The account is suspended or deleted. This is on purpose, and the reply is the same as for an unknown id. | Check `status` and `deleted_at` in DBeaver. Restore the account if it was suspended for a test. |
 | An e2e test that expects `404` passes, but the route is broken | An error test can pass for the wrong reason when everything gives the same error. | Pair every error test with a success test on the same route. |
 | `npm run lint` shows `typescript(unbound-method)` warnings in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts` | Those tests pass `DemoController.prototype.<method>` to a fake context so the guard can read a route mark. The method is never called. | Safe to leave. They are warnings, not errors (Part 10, Step 57). Clean them up later as a separate small item. |
+| `GET /subjects` or `GET /levels` gives `{ "data": [] }` | No active rows exist. The development database may be empty, or every row is hidden (`is_active = false`). | Run `npm run seed` from `backend/`, or check `is_active` in DBeaver. An empty list is the correct reply, not a bug. |
+| A subject is in the database but not in `GET /subjects` | The subject is hidden (`is_active = false`). Hidden rows are left out on purpose. | Show it again in DBeaver (`UPDATE subjects SET is_active = true WHERE id = ...;`). The admin routes for this come in week 9. |
 
 ## Quick Cheat Sheet
 
@@ -2363,6 +2458,9 @@ studycircle-peer_study_group_finder/
 | Check the two seed students after a Postman round (DBeaver, `studycircle`) | The query in `postman_manual_api_tests.md`, "Check the two seed students after round 2" |
 | See the own profile (Postman, logged in) | `GET http://localhost:3000/api/v1/users/me/profile` |
 | See another student's public profile (Postman, logged in) | `GET http://localhost:3000/api/v1/users/3/profile` |
+| Run only the subject and level e2e tests | `npm run test:e2e -- lookups.e2e-spec` |
+| See the active subjects (Postman, logged in) | `GET http://localhost:3000/api/v1/subjects` |
+| See the active levels (Postman, logged in) | `GET http://localhost:3000/api/v1/levels` |
 
 ## Rules to Never Forget
 
@@ -2445,3 +2543,4 @@ studycircle-peer_study_group_finder/
 - Update DTOs list only the fields a person may change. Never list `email`, `role`, `status`, `password`, or `id` in a profile DTO.
 - Copy allowed fields into a Prisma `data` object one by one. Never spread a DTO into a query.
 - Every error test needs a matching success test, so a test cannot pass for the wrong reason.
+- Lists of choices (subjects, levels) send only active rows and only the fields a dropdown needs. A hidden row must act as if it does not exist everywhere.
