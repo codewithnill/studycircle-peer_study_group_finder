@@ -1,7 +1,7 @@
 # StudyCircle — Postman Manual API Tests
 
-**Tests done up to:** test 29, on 20 November 2026.
-**Next test number:** 30.
+**Tests done up to:** test 39, on 22 November 2026.
+**Next test number:** 40.
 
 ## 1. What This File Is
 
@@ -10,7 +10,7 @@ This is one living file. It does two jobs.
 1. **A guide to repeat the tests.** Every test has a number, what it is for, the method and URL, the JSON body, the manual steps, the expected reply, and the cleanup SQL. Use it when you want to run a test again.
 2. **A record of the tests.** The log in Section 6 shows which tests were done and on which day. When more tests are done, add them to the log and keep counting. Do not start again from 01.
 
-The file has no version number. It changes only by adding tests and dates. The screenshots for these tests are in `screenshots/postman_manual_api_testing/` at the repository root.
+The file has no version number. It changes only by adding tests and dates.
 
 ## 2. How to Use This File in Any Chat
 
@@ -31,29 +31,14 @@ Use this section when a new chat must continue the API tests.
 
 ## 3. When a Test Is Finished
 
-After each test, the person takes a screenshot. The chat then gives two things:
+After each test, the person takes a screenshot and saves it in `screenshots/postman_manual_api_testing/`. This file never lists screenshot names or commit messages. It refers to each test only by its number.
 
-1. **A screenshot name.** Use the pattern `NN-short-name.png`. `NN` is the next free number, with two digits. The words are lowercase with hyphens. Example: `20-group-create-success.png`. Check that the number is not already used. Save it in `screenshots/postman_manual_api_testing/`.
-2. **A commit message.** Use the format from `git_commit_guide.md`: the type `docs:`, a lowercase first line that ends with a period, one blank line, then one flowing paragraph. No bullet points. Example:
-
-```text
-docs: add postman screenshot for group create.
-
-Show the 201 reply when a leader creates a group, with only the safe fields in the response.
-```
-
-**Check every screenshot before the commit:**
+**Check every screenshot before it is saved:**
 1. No cookie token values, no `.env` content, no real password.
 2. The Postman helper bars ("Fix 401", "Add tests", "Change method") are closed. Click **Decline**.
 3. The status code and the reply are both visible.
 
-**After the screenshot is committed:** the chat adds the test to Section 6 (log) and Section 7 (details), and updates the two lines at the top of this file ("Tests done up to" and "Next test number"). Then commit this file with a message like:
-
-```text
-docs: update postman manual api tests.
-
-Add tests 20 to 22 for group creation to the log and the details, with the date they were done.
-```
+**After the test:** the chat adds the test to Section 6 (log) and Section 7 (details), and updates the two lines at the top of this file ("Tests done up to" and "Next test number").
 
 ## 4. Before You Start
 
@@ -72,12 +57,13 @@ Add tests 20 to 22 for group creation to the log and the details, with the date 
 |---|---|---|
 | Postman test account | `postman01@studycircle.test` | Made by test 01. Password `Postman@123`. Role `student`. |
 | Seed student | `student01@studycircle.test` | Made by the seed script. Password `Student@12345`. Name "Anika Rahman" (checked on 17 November 2026). Seed ids start at 2 for the first student. |
-| Second seed student | id `3` | Made by the seed script. Name "Rafi Sarker" (checked on 20 November 2026). Used as "another person" in tests 24 and 25. |
+| Second seed student | `student02@studycircle.test`, id `3` | Made by the seed script. Password `Student@12345`. Name "Rafi Sarker" (checked on 20 November 2026). Used as "another person" in tests 24, 25, 34, 35, and 37. |
+| Demo group | id `26`, "Trees and graphs exam prep" | Made by test 30 on 22 November 2026, with Anika Rahman (id 2) as leader. Edited by test 36. A new run of test 30 makes a group with a new id. |
 | Seed admin | `admin@studycircle.test` | Password is `SEED_ADMIN_PASSWORD` from `backend/.env`. Never write it here. |
 | Unknown email | `nobody99@studycircle.test` | Has no account. Used in test 06. |
 | Wrong password | `WrongPass@999` | A throwaway value for the wrong-password tests. |
 
-All passwords above except the admin one are throwaway demo values. They are safe to show in a screenshot.
+All passwords above except the admin one are throwaway demo values. They are safe to show in an image.
 
 **Ids change.** The `postman01` account had id 32, and then id 34, because ids are never reused after a delete. Do not expect a fixed id in the reply. Check that the field exists and that the other fields look right.
 
@@ -90,54 +76,66 @@ All passwords above except the admin one are throwaway demo values. They are saf
 | Action with nothing to return (`200`) | `{ "data": null }` |
 | Own profile (`200`) | `data` with `id`, `name`, `department`, `academic_year`, `bio`, `subjects` (a list of `id` and `name`), the person's own `email`, and `role`. Checked on 20 November 2026. |
 | Public profile (`200`) | `data` with `id`, `name`, `department`, `academic_year`, `bio`, `subjects`. No email, no role. Checked on 20 November 2026. |
+| Group page (`200` or `201`) | `data` with `id`, `title`, `topic`, `description`, `exam_date` (`YYYY-MM-DD` or null), `mode`, `location`, `max_size`, `member_count`, `seats_left`, `status`, `members_can_post`, `created_at`, `subject` and `leader` (each `id` and `name`), `level` (`id` and `name`, or null), and `my_role` (`leader`, `member`, or null). No emails. Checked on 22 November 2026. |
 | Any error | `status_code`, `message`, `errors` (a list, empty unless it is a form error) |
 
 ## 6. Test Log
 
-| # | Test | Result | Date done | Screenshot |
-|---|---|---|---|---|
-| 01 | Register success | `201`, safe fields only | 17 November 2026 | `01-register-success.png` |
-| 02 | Register with a duplicate email | `409` | 17 November 2026 | `02-register-duplicate-email.png` |
-| 03 | Register with an extra `role` field | `400` | 17 November 2026 | `03-register-role-field-refused.png` |
-| 04 | Register with a short password | `400` | 17 November 2026 | `04-register-short-password-refused.png` |
-| 05 | Login with a wrong password | `401` | 17 November 2026 | `05-login-wrong-password.png` |
-| 06 | Login with an unknown email | `401`, same message as 05 | 17 November 2026 | `06-login-unknown-email.png` |
-| 07 | Login success | `200`, own data, two cookies | 17 November 2026 | `07-login-success-cookies.png` |
-| 08 | `me` while logged in | `200` | 17 November 2026 | `08-me-logged-in.png` |
-| 09 | Refresh success | `200`, `{ "data": null }` | 17 November 2026 | `09-refresh-success.png` |
-| 10 | Refresh with an old (used) token | `401` | 17 November 2026 | `10-refresh-old-token-refused.png` |
-| 11 | Logout | `200`, `{ "data": null }` | 17 November 2026 | `11-logout-success.png` |
-| 12 | `me` after logout | `401` | 17 November 2026 | `12-me-after-logout.png` |
-| 13 | Refresh with a cancelled token | `401` | 17 November 2026 | `13-refresh-cancelled-token-refused.png` |
-| 14 | Login as the seed student | `200` | 17 November 2026 | `14-login-seed-student.png` |
-| 15 | `me` with a suspended account | `401` at once | 17 November 2026 | `15-me-suspended-account.png` |
-| 16 | Login with a suspended account | `401`, same message as 05 | 17 November 2026 | `16-login-suspended-account.png` |
-| 17 | DBeaver: refresh token hashes | 64 hex characters, cancelled rows flagged | 17 November 2026 | `17-dbeaver-refresh-token-hash.png` |
-| 18 | DBeaver: password hashes | bcrypt, `$2b$`, length 60 | 17 November 2026 | `18-dbeaver-password-hash.png` |
-| 19 | Login rate limit | `429`, `Retry-After: 60` | 17 November 2026 | `19-rate-limit-429.png` |
-| 20 | Own profile | `200`, own email and subjects | 20 November 2026 | `20-profile-own-success.png` |
-| 21 | Edit own profile | `200`, bio saved without outer spaces | 20 November 2026 | `21-profile-edit-success.png` |
-| 22 | Edit with an extra `role` field | `400`, nothing saved | 20 November 2026 | `22-profile-edit-role-refused.png` |
-| 23 | Edit with a bad `academic_year` | `400`, the field is named | 20 November 2026 | `23-profile-edit-bad-year-refused.png` |
-| 24 | Public profile of another student | `200`, no email, no role | 20 November 2026 | `24-profile-public-no-email.png` |
-| 25 | Public profile of a suspended student | `404` | 20 November 2026 | `25-profile-public-suspended-404.png` |
-| 26 | Add a subject | `201` | 20 November 2026 | `26-profile-subject-add-success.png` |
-| 27 | Add the same subject again | `409` | 20 November 2026 | `27-profile-subject-add-duplicate-409.png` |
-| 28 | Remove a subject | `200`, `{ "data": null }` | 20 November 2026 | `28-profile-subject-remove-success.png` |
-| 29 | Own profile without a login | `401` | 20 November 2026 | `29-profile-own-no-login-401.png` |
+| # | Test | Result | Date done |
+|---|---|---|---|
+| 01 | Register success | `201`, safe fields only | 17 November 2026 |
+| 02 | Register with a duplicate email | `409` | 17 November 2026 |
+| 03 | Register with an extra `role` field | `400` | 17 November 2026 |
+| 04 | Register with a short password | `400` | 17 November 2026 |
+| 05 | Login with a wrong password | `401` | 17 November 2026 |
+| 06 | Login with an unknown email | `401`, same message as 05 | 17 November 2026 |
+| 07 | Login success | `200`, own data, two cookies | 17 November 2026 |
+| 08 | `me` while logged in | `200` | 17 November 2026 |
+| 09 | Refresh success | `200`, `{ "data": null }` | 17 November 2026 |
+| 10 | Refresh with an old (used) token | `401` | 17 November 2026 |
+| 11 | Logout | `200`, `{ "data": null }` | 17 November 2026 |
+| 12 | `me` after logout | `401` | 17 November 2026 |
+| 13 | Refresh with a cancelled token | `401` | 17 November 2026 |
+| 14 | Login as the seed student | `200` | 17 November 2026 |
+| 15 | `me` with a suspended account | `401` at once | 17 November 2026 |
+| 16 | Login with a suspended account | `401`, same message as 05 | 17 November 2026 |
+| 17 | DBeaver: refresh token hashes | 64 hex characters, cancelled rows flagged | 17 November 2026 |
+| 18 | DBeaver: password hashes | bcrypt, `$2b$`, length 60 | 17 November 2026 |
+| 19 | Login rate limit | `429`, `Retry-After: 60` | 17 November 2026 |
+| 20 | Own profile | `200`, own email and subjects | 20 November 2026 |
+| 21 | Edit own profile | `200`, bio saved without outer spaces | 20 November 2026 |
+| 22 | Edit with an extra `role` field | `400`, nothing saved | 20 November 2026 |
+| 23 | Edit with a bad `academic_year` | `400`, the field is named | 20 November 2026 |
+| 24 | Public profile of another student | `200`, no email, no role | 20 November 2026 |
+| 25 | Public profile of a suspended student | `404` | 20 November 2026 |
+| 26 | Add a subject | `201` | 20 November 2026 |
+| 27 | Add the same subject again | `409` | 20 November 2026 |
+| 28 | Remove a subject | `200`, `{ "data": null }` | 20 November 2026 |
+| 29 | Own profile without a login | `401` | 20 November 2026 |
+| 30 | Create a group | `201`, `my_role: "leader"`, `seats_left: 4` | 22 November 2026 |
+| 31 | Create an in-person group with no location | `400` | 22 November 2026 |
+| 32 | Create a group with a past exam date | `400` | 22 November 2026 |
+| 33 | Create a group with an extra `leader_id` field | `400`, the field is named | 22 November 2026 |
+| 34 | Another student views the group | `200`, `my_role: null`, no email | 22 November 2026 |
+| 35 | View an unknown group | `404` | 22 November 2026 |
+| 36 | The leader edits the group | `200`, title trimmed, `seats_left: 7` | 22 November 2026 |
+| 37 | A student who is not the leader edits the group | `403`, nothing changed | 22 November 2026 |
+| 38 | Edit with an empty body | `400` | 22 November 2026 |
+| 39 | DBeaver: the group and its one leader row | 1 row, `role = leader` | 22 November 2026 |
 
 **Rounds:**
 
 | Round | Date | Tests | Notes |
 |---|---|---|---|
-| 1 | 17 November 2026 | 01 to 19 | Backend authentication (register, login, me, refresh, logout, suspension, rate limit). All passed. The screenshots show the messages of that day: lowercase auth messages and the `429` text `ThrottlerException: Too Many Requests`. Both were changed on 19 November 2026 (Section 7 shows the new text). |
+| 1 | 17 November 2026 | 01 to 19 | Backend authentication (register, login, me, refresh, logout, suspension, rate limit). All passed. The images of that day show the messages of that time: lowercase auth messages and the `429` text `ThrottlerException: Too Many Requests`. Both were changed on 19 November 2026 (Section 7 shows the new text). |
 | 2 | 20 November 2026 | 20 to 29 | Profile routes (own profile, edit, refused fields, public profile, suspended profile, subjects of interest, no login). All passed. Demo data was put back afterwards and checked in DBeaver. |
+| 3 | 22 November 2026 | 30 to 39 | Group routes (create, the location and past-date rules, a refused extra field, view by another student, unknown id, leader edit, edit by a non-leader, empty edit, the leader row in DBeaver). All passed. The tests were run in the order 30 to 35, then 37, then 36, 38, and 39, to save one login. Group 26 stays in the development database as demo data. The `409` size case needs more members, so it is covered only by the e2e tests until join requests exist (week 5). |
 
 ## 7. Test Details
 
-The tests of round 1 depend on each other. Run them in order the first time. After that, each test says what it needs. The tests of round 2 (20 to 29) also run in order, because tests 27 and 28 use the subject added in test 26.
+The tests of round 1 depend on each other. Run them in order the first time. After that, each test says what it needs. The tests of round 2 (20 to 29) also run in order, because tests 27 and 28 use the subject added in test 26. The tests of round 3 (30 to 39) use the group made in test 30. Run 34, 35, and 37 while logged in as the second seed student, then log back in as `student01` for 36, 38, and 39.
 
-**Message wording.** On 19 November 2026 every auth message got a capital first letter, and the `429` message became a plain sentence (tracker item 53). The expected replies below show the new text. Screenshots 01 to 19 were taken on 17 November 2026, so they show the old lowercase text. They still prove the same behaviour.
+**Message wording.** On 19 November 2026 every auth message got a capital first letter, and the `429` message became a plain sentence. The expected replies below show the new text. Images 01 to 19 were saved on 17 November 2026, so they show the old lowercase text. They still prove the same behaviour.
 
 ### Cleanup SQL (DBeaver, database `studycircle`)
 
@@ -167,7 +165,7 @@ UPDATE users SET status = 'active' WHERE email = 'student01@studycircle.test';
 UPDATE users SET status = 'suspended' WHERE id = 3;
 ```
 
-**Restore the second seed student** (always do this right after the screenshot of test 25):
+**Restore the second seed student** (always do this right after the image of test 25):
 
 ```sql
 UPDATE users SET status = 'active' WHERE id = 3;
@@ -207,14 +205,6 @@ Body (raw, JSON):
 
 **Edit next time:** to make a second test account, change `name` and `email` (for example `postman02@studycircle.test`).
 
-**Screenshot:** `01-register-success.png`
-
-```text
-docs: add postman screenshot for successful register.
-
-Show a 201 reply for a new student account, with only the safe fields and no email or password hash in the response.
-```
-
 ---
 
 ### Test 02 — Register with a duplicate email
@@ -240,14 +230,6 @@ Body: the same as test 01.
 ```
 
 No `data` key.
-
-**Screenshot:** `02-register-duplicate-email.png`
-
-```text
-docs: add postman screenshot for duplicate email register.
-
-Show the 409 reply when the same email is registered a second time.
-```
 
 ---
 
@@ -285,14 +267,6 @@ Body (use a new email, so the extra field is the only problem):
 ```
 
 No account is created.
-
-**Screenshot:** `03-register-role-field-refused.png`
-
-```text
-docs: add postman screenshot for refused role field.
-
-Show the 400 reply when a register request tries to send a role field, which proves nobody can register as admin.
-```
 
 ---
 
@@ -332,14 +306,6 @@ No account is created.
 
 **Note:** tests 01 to 04 are 4 register calls. The register limit is 5 per minute. Do not send more than 5 in one minute.
 
-**Screenshot:** `04-register-short-password-refused.png`
-
-```text
-docs: add postman screenshot for refused short password.
-
-Show the 400 reply when the password is shorter than eight characters.
-```
-
 ---
 
 ### Test 05 — Login with a wrong password
@@ -371,14 +337,6 @@ Body (the email is real, the password is wrong):
 
 No `data` key. The Cookies tab stays empty (no cookie is set).
 
-**Screenshot:** `05-login-wrong-password.png`
-
-```text
-docs: add postman screenshot for login with a wrong password.
-
-Show the general 401 reply for a correct email with a wrong password.
-```
-
 ---
 
 ### Test 06 — Login with an unknown email
@@ -399,14 +357,6 @@ Body:
 ```
 
 **Expected:** status `401`. The reply is exactly the same as test 05, with the message `Email or password is not correct`. No cookies.
-
-**Screenshot:** `06-login-unknown-email.png`
-
-```text
-docs: add postman screenshot for login with an unknown email.
-
-Show that an unknown email gives exactly the same 401 message as a wrong password, so the reply does not reveal which emails have an account.
-```
 
 ---
 
@@ -433,15 +383,7 @@ Body:
 1. `access_token`: path `/`, marked HttpOnly.
 2. `refresh_token`: path `/api/v1/auth`, marked HttpOnly.
 
-**Safety:** the cookie values are real tokens. Do not screenshot the values. Show only the JSON reply.
-
-**Screenshot:** `07-login-success-cookies.png`
-
-```text
-docs: add postman screenshot for successful login.
-
-Show the 200 reply with the own data of the logged-in person, with no tokens and no password hash in the body.
-```
+**Safety:** the cookie values are real tokens. Do not capture the values in an image. Show only the JSON reply.
 
 ---
 
@@ -460,14 +402,6 @@ Body: none.
 **Expected:** status `200 OK`, and `data` has the same own data as the login reply. No token text, no hash.
 
 **If it gives `401`:** the cookie expired or was not kept. Log in again (test 07), then send `me` in the same window.
-
-**Screenshot:** `08-me-logged-in.png`
-
-```text
-docs: add postman screenshot for the me route when logged in.
-
-Show the 200 reply with the own data of the logged-in person.
-```
 
 ---
 
@@ -494,14 +428,6 @@ Body: none.
 ```
 
 **Manual check:** the Cookies tab still shows two cookies, and their values are now different from before. Do not show the values.
-
-**Screenshot:** `09-refresh-success.png`
-
-```text
-docs: add postman screenshot for a successful token refresh.
-
-Show the 200 reply with an empty data value and no token text in the body when a valid refresh cookie is sent.
-```
 
 ---
 
@@ -535,14 +461,6 @@ Body: none.
 
 No `data` key, no token text. All refresh tokens of this person are now cancelled. Log in again before the next test.
 
-**Screenshot:** `10-refresh-old-token-refused.png`
-
-```text
-docs: add postman screenshot for reuse of an old refresh token.
-
-Show the 401 reply when an already used refresh token is sent again, which also cancels every refresh token of that person.
-```
-
 ---
 
 ### Test 11 — Logout
@@ -566,14 +484,6 @@ Body: none.
 ```
 
 **Manual check:** the Cookies tab no longer lists `access_token` and `refresh_token` for `localhost`.
-
-**Screenshot:** `11-logout-success.png`
-
-```text
-docs: add postman screenshot for logout.
-
-Show the 200 reply with an empty data value after the person logs out.
-```
 
 ---
 
@@ -599,14 +509,6 @@ Body: none.
 
 No `data` key. If it gives `200`, stop: the access cookie was not removed.
 
-**Screenshot:** `12-me-after-logout.png`
-
-```text
-docs: add postman screenshot for the me route after logout.
-
-Show the 401 reply when the me route is called without a login.
-```
-
 ---
 
 ### Test 13 — Refresh with a cancelled token
@@ -630,14 +532,6 @@ Body: none.
 
 **Tip:** if the Cookies tab has no add option, put the cookie in a `Cookie` header on the request instead. Remove the header afterwards.
 
-**Screenshot:** `13-refresh-cancelled-token-refused.png`
-
-```text
-docs: add postman screenshot for a cancelled refresh token.
-
-Show the 401 reply when the refresh token that was cancelled at logout is sent again.
-```
-
 ---
 
 ### Test 14 — Login as the seed student
@@ -658,14 +552,6 @@ Body:
 ```
 
 **Expected:** status `200 OK`. `data` has the seed student's own data (name "Anika Rahman" on 17 November 2026) and `role` `student`. No hash, no token text. Two new cookies are set. Keep the cookies for test 15.
-
-**Screenshot:** `14-login-seed-student.png`
-
-```text
-docs: add postman screenshot for login with a seed student.
-
-Show that the demo accounts made by the seed script can log in with the new login code.
-```
 
 ---
 
@@ -693,14 +579,6 @@ Body: none.
 
 Do **not** restore the account yet. Test 16 needs it suspended.
 
-**Screenshot:** `15-me-suspended-account.png`
-
-```text
-docs: add postman screenshot for a suspended account on the me route.
-
-Show the 401 reply at once after an admin suspends the account, even though the access token has not expired yet.
-```
-
 ---
 
 ### Test 16 — Login with a suspended account
@@ -724,18 +602,10 @@ Body (the password is correct):
 
 **Expected:** status `401`, with the message `Email or password is not correct`. No `data`, no cookies.
 
-**Cleanup (after the screenshot):** restore the account in DBeaver. If you restore it before the screenshot, the login would succeed with `200`.
+**Cleanup (after the image):** restore the account in DBeaver. If you restore it before the image, the login would succeed with `200`.
 
 ```sql
 UPDATE users SET status = 'active' WHERE email = 'student01@studycircle.test';
-```
-
-**Screenshot:** `16-login-suspended-account.png`
-
-```text
-docs: add postman screenshot for login with a suspended account.
-
-Show that a suspended account gets the same general 401 message as a wrong password.
 ```
 
 ---
@@ -744,7 +614,7 @@ Show that a suspended account gets the same general 401 message as a wrong passw
 
 **What it is for:** shows that only 64-character hashes of refresh tokens are stored, never the raw cookie value, and that cancelled tokens are flagged.
 
-**Run in DBeaver** (`studycircle`). The query never selects `token_hash`, so no hash can show in the screenshot:
+**Run in DBeaver** (`studycircle`). The query never selects `token_hash`, so no hash can show in the image:
 
 ```sql
 SELECT id, user_id, length(token_hash) AS hash_length, token_hash ~ '^[0-9a-f]{64}$' AS is_64_hex, revoked_at IS NOT NULL AS is_revoked, expires_at, created_at FROM refresh_tokens ORDER BY id DESC LIMIT 10;
@@ -754,14 +624,6 @@ SELECT id, user_id, length(token_hash) AS hash_length, token_hash ~ '^[0-9a-f]{6
 1. `hash_length` is `64` and `is_64_hex` is true on every row.
 2. Rows for the `postman01` account (cancelled by the reuse in test 10, the logout in test 11, and the reuse in test 13) show `is_revoked` as true.
 3. The newest rows of `student01` show `is_revoked` as false, because they were never logged out.
-
-**Screenshot:** `17-dbeaver-refresh-token-hash.png`
-
-```text
-docs: add dbeaver screenshot for stored refresh token hashes.
-
-Show that the refresh tokens table holds only sixty-four character hashes, with cancelled tokens flagged as revoked and the hash values never shown.
-```
 
 ---
 
@@ -776,14 +638,6 @@ SELECT id, email, left(password_hash, 4) AS hash_start, length(password_hash) AS
 ```
 
 **Expected:** 2 rows. `hash_start` is `$2b$`, `hash_length` is `60`, and `is_bcrypt` is true on both rows. No full hash is shown.
-
-**Screenshot:** `18-dbeaver-password-hash.png`
-
-```text
-docs: add dbeaver screenshot for the stored password hash.
-
-Show that the password is stored as a bcrypt hash and never as plain text.
-```
 
 ---
 
@@ -820,15 +674,7 @@ Body (the same each time):
 
 **Manual check:** in the response **Headers** tab, `Retry-After` is `60`.
 
-**Message change (19 November 2026):** the message used to be the class name `ThrottlerException: Too Many Requests`. Since tracker item 53, the exception filter sends the plain sentence shown above. Screenshot 19 was taken before the change, so it still shows the old text.
-
-**Screenshot:** `19-rate-limit-429.png`
-
-```text
-docs: add postman screenshot for the login rate limit.
-
-Show the 429 reply when more than five login attempts are sent in one minute.
-```
+**Message change (19 November 2026):** the message used to be the class name `ThrottlerException: Too Many Requests`. Since then, the exception filter sends the plain sentence shown above. Image 19 was saved before the change, so it still shows the old text.
 
 ---
 
@@ -869,14 +715,6 @@ The subjects are sorted by name. No `password_hash`, no `status`, no token text.
 
 **Manual step:** write down the `bio` value. Test 29 puts it back.
 
-**Screenshot:** `20-profile-own-success.png`
-
-```text
-docs: add postman screenshot for the own profile route.
-
-Show the 200 reply of GET /users/me/profile for the seed student, with her own email, department, year, bio, role, and subjects of interest sorted by name, and no password hash, status, or token in the body.
-```
-
 ---
 
 ### Test 21 — Edit own profile
@@ -898,14 +736,6 @@ Body (raw, JSON). The spaces at both ends are there on purpose:
 ```
 
 **Expected:** status `200 OK`. The reply is the full own profile (the same shape as test 20), with `"bio": "Testing the profile route"` and no spaces at the ends. Every other field is unchanged.
-
-**Screenshot:** `21-profile-edit-success.png` (show the request body and the reply).
-
-```text
-docs: add postman screenshot for a successful profile edit.
-
-Show the 200 reply of PATCH /users/me when the seed student changes her bio, with the outer spaces removed from the saved text and every other field unchanged.
-```
 
 ---
 
@@ -942,14 +772,6 @@ Body (raw, JSON):
 
 **Manual check:** send `GET /users/me/profile`. The `bio` must still be `Testing the profile route`, not `Should not be saved`. (Checked on 20 November 2026.)
 
-**Screenshot:** `22-profile-edit-role-refused.png` (show the request body and the reply).
-
-```text
-docs: add postman screenshot for a refused role field in the profile edit.
-
-Show the 400 reply with the message property role should not exist when a profile edit tries to send a role field, which proves a student cannot make themselves an admin and that nothing in the refused request is saved.
-```
-
 ---
 
 ### Test 23 — Edit with a bad `academic_year`
@@ -980,14 +802,6 @@ Body (raw, JSON):
     { "field": "academic_year", "message": "academic_year must not be greater than 6" }
   ]
 }
-```
-
-**Screenshot:** `23-profile-edit-bad-year-refused.png` (show the request body and the reply).
-
-```text
-docs: add postman screenshot for a refused academic year in the profile edit.
-
-Show the 400 reply when academic_year is 7, with the errors list naming the field in snake_case and the message saying it must not be greater than 6.
 ```
 
 ---
@@ -1025,14 +839,6 @@ Body: none.
 
 No `email`, no `role`, no `status`, no `password_hash`.
 
-**Screenshot:** `24-profile-public-no-email.png`
-
-```text
-docs: add postman screenshot for a public profile without email.
-
-Show the 200 reply of GET /users/3/profile, where one student views another student's public profile with only the name, department, year, bio, and subjects, and no email, role, status, or password hash.
-```
-
 ---
 
 ### Test 25 — Public profile of a suspended student
@@ -1057,15 +863,7 @@ Body: none.
 }
 ```
 
-**Cleanup (right after the screenshot):** restore the second seed student with the SQL above, then send the test 24 request again. It must give `200`.
-
-**Screenshot:** `25-profile-public-suspended-404.png`
-
-```text
-docs: add postman screenshot for the public profile of a suspended student.
-
-Show the 404 reply with the message This profile does not exist when a student asks for the public profile of a suspended account, which is the same reply as an unknown id, so nobody can tell that the hidden account exists.
-```
+**Cleanup (right after the image):** restore the second seed student with the SQL above, then send the test 24 request again. It must give `200`.
 
 ---
 
@@ -1098,14 +896,6 @@ Body (raw, JSON):
 }
 ```
 
-**Screenshot:** `26-profile-subject-add-success.png` (show the request body and the reply).
-
-```text
-docs: add postman screenshot for adding a subject of interest.
-
-Show the 201 reply of POST /users/me/subjects when the seed student adds an active subject that is not yet in her list, with only the subject id and name in the body.
-```
-
 ---
 
 ### Test 27 — Add the same subject again
@@ -1130,14 +920,6 @@ Body: the same as test 26.
 }
 ```
 
-**Screenshot:** `27-profile-subject-add-duplicate-409.png` (show the request body and the reply).
-
-```text
-docs: add postman screenshot for adding the same subject twice.
-
-Show the 409 reply with the message This subject is already in your list when the same subject is added a second time, instead of the general database message.
-```
-
 ---
 
 ### Test 28 — Remove a subject
@@ -1158,14 +940,6 @@ Body: none.
 {
   "data": null
 }
-```
-
-**Screenshot:** `28-profile-subject-remove-success.png`
-
-```text
-docs: add postman screenshot for removing a subject of interest.
-
-Show the 200 reply with an empty data value when the seed student removes a subject from her own list, which also puts her list back to the seed state.
 ```
 
 ---
@@ -1197,13 +971,321 @@ Body: none.
 
 **Cleanup:** run the "Check the two seed students after round 2" query in DBeaver. Both rows must match the expected values.
 
-**Screenshot:** `29-profile-own-no-login-401.png`
+---
+
+### Test 30 — Create a group
+
+**What it is for:** shows that a student can create a study group and becomes its leader at once. The reply is the group page, with seats left worked out and no emails.
+
+**Before:** log in as `student01` with the body of test 14, in the same Postman window. Send `GET http://localhost:3000/api/v1/subjects` and `GET http://localhost:3000/api/v1/levels`, and pick one active id from each. On 22 November 2026 subject `2` ("Algorithms") and level `2` ("Intermediate") were used.
 
 ```text
-docs: add postman screenshot for the own profile without a login.
-
-Show the 401 reply with the message Please log in to continue when the own profile route is called after logout, which proves that the profile routes are locked without a login cookie.
+POST http://localhost:3000/api/v1/groups
 ```
+
+Body (raw, JSON). Use an exam date in the future:
+
+```json
+{
+  "title": "Data Structures exam prep",
+  "subject_id": 2,
+  "level_id": 2,
+  "description": "Weekly practice with past papers.",
+  "exam_date": "2026-12-20",
+  "mode": "online",
+  "max_size": 5
+}
+```
+
+**Expected:** status `201 Created`. On 22 November 2026 the reply was:
+
+```json
+{
+  "data": {
+    "id": 26,
+    "title": "Data Structures exam prep",
+    "topic": null,
+    "description": "Weekly practice with past papers.",
+    "exam_date": "2026-12-20",
+    "mode": "online",
+    "location": null,
+    "max_size": 5,
+    "member_count": 1,
+    "seats_left": 4,
+    "status": "active",
+    "members_can_post": false,
+    "created_at": "2026-11-21T19:56:21.926Z",
+    "subject": { "id": 2, "name": "Algorithms" },
+    "level": { "id": 2, "name": "Intermediate" },
+    "leader": { "id": 2, "name": "Anika Rahman" },
+    "my_role": "leader"
+  }
+}
+```
+
+`created_at` is in UTC. 19:56 UTC on 21 November is 01:56 on 22 November in Dhaka. The leader has no email. **Write down the group `id`.** Tests 34 to 39 use it.
+
+---
+
+### Test 31 — Create an in-person group with no location
+
+**What it is for:** shows that an in-person group must say where it meets.
+
+**Before:** logged in as `student01`.
+
+```text
+POST http://localhost:3000/api/v1/groups
+```
+
+Body (raw, JSON):
+
+```json
+{
+  "title": "Calculus study circle",
+  "subject_id": 2,
+  "description": "We meet on campus to solve problems together.",
+  "mode": "in_person",
+  "max_size": 4
+}
+```
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "An in-person group needs a location",
+  "errors": []
+}
+```
+
+No group is created, because the check runs before anything is saved.
+
+---
+
+### Test 32 — Create a group with a past exam date
+
+**What it is for:** shows that a new group cannot have an exam date that has already passed, because search would hide it at once.
+
+**Before:** logged in as `student01`.
+
+```text
+POST http://localhost:3000/api/v1/groups
+```
+
+Body (raw, JSON):
+
+```json
+{
+  "title": "Old exam revision",
+  "subject_id": 2,
+  "description": "Revision for an exam that already happened.",
+  "exam_date": "2025-06-01",
+  "mode": "online",
+  "max_size": 4
+}
+```
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "The exam date cannot be in the past",
+  "errors": []
+}
+```
+
+---
+
+### Test 33 — Create a group with an extra `leader_id` field
+
+**What it is for:** shows that nobody can choose the leader by hand. The leader is always the logged-in person.
+
+**Before:** logged in as `student01`.
+
+```text
+POST http://localhost:3000/api/v1/groups
+```
+
+Body (raw, JSON):
+
+```json
+{
+  "title": "Sneaky group",
+  "subject_id": 2,
+  "description": "Trying to choose the leader by hand.",
+  "mode": "online",
+  "max_size": 4,
+  "leader_id": 1
+}
+```
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "Validation failed",
+  "errors": [
+    { "field": "leader_id", "message": "property leader_id should not exist" }
+  ]
+}
+```
+
+No group is created.
+
+---
+
+### Test 34 — Another student views the group
+
+**What it is for:** shows what a student sees before asking to join: the group page with no role and no email.
+
+**Before:** log in as the second seed student. A new login replaces the cookie, so Postman becomes this student:
+
+```text
+POST http://localhost:3000/api/v1/auth/login
+```
+
+```json
+{ "email": "student02@studycircle.test", "password": "Student@12345" }
+```
+
+Expect `200` with the name "Rafi Sarker".
+
+```text
+GET http://localhost:3000/api/v1/groups/26
+```
+
+Body: none. (Use the id from test 30.)
+
+**Expected:** status `200 OK`. The same group page as test 30, with `"my_role": null`, `"seats_left": 4`, and `"leader": { "id": 2, "name": "Anika Rahman" }`. No email anywhere.
+
+---
+
+### Test 35 — View an unknown group
+
+**What it is for:** shows that an unknown group id gives a clean `404`. A removed, deleted, or archived group gives the same reply.
+
+**Before:** logged in as the second seed student (test 34).
+
+```text
+GET http://localhost:3000/api/v1/groups/99999
+```
+
+Body: none.
+
+**Expected:** status `404 Not Found`.
+
+```json
+{
+  "status_code": 404,
+  "message": "This group does not exist",
+  "errors": []
+}
+```
+
+---
+
+### Test 36 — The leader edits the group
+
+**What it is for:** shows that the leader can change the group, that outer spaces are removed, and that seats left follows the new size.
+
+**Before:** log back in as `student01` with the body of test 14. Expect `200` with the name "Anika Rahman".
+
+```text
+PATCH http://localhost:3000/api/v1/groups/26
+```
+
+Body (raw, JSON). The spaces around the title are there on purpose:
+
+```json
+{ "title": "  Trees and graphs exam prep  ", "max_size": 8 }
+```
+
+**Expected:** status `200 OK`. The full group page, with `"title": "Trees and graphs exam prep"` (no spaces at the ends), `"max_size": 8`, `"seats_left": 7`, and `"my_role": "leader"`. Every other field is unchanged.
+
+---
+
+### Test 37 — A student who is not the leader edits the group
+
+**What it is for:** shows that only the leader can change a group. Another student can see it, but gets `403` when they try to change it.
+
+**Before:** logged in as the second seed student (run this right after test 35, before logging back in as `student01`).
+
+```text
+PATCH http://localhost:3000/api/v1/groups/26
+```
+
+Body (raw, JSON):
+
+```json
+{ "title": "Taken over by Rafi" }
+```
+
+**Expected:** status `403 Forbidden`.
+
+```json
+{
+  "status_code": 403,
+  "message": "Only the group leader can do this",
+  "errors": []
+}
+```
+
+The title does not change.
+
+---
+
+### Test 38 — Edit with an empty body
+
+**What it is for:** shows that an empty change is refused with a plain sentence, because it is most likely a form mistake.
+
+**Before:** logged in as `student01` (test 36).
+
+```text
+PATCH http://localhost:3000/api/v1/groups/26
+```
+
+Body (raw, JSON):
+
+```json
+{}
+```
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "Send at least one field to change",
+  "errors": []
+}
+```
+
+---
+
+### Test 39 — DBeaver: the group and its one leader row
+
+**What it is for:** shows that the group row and the leader's member row were saved together, and that the group has exactly one member, the leader.
+
+**Run in DBeaver** (`studycircle`). The query shows no emails:
+
+```sql
+SELECT g.id AS group_id, g.title, g.leader_id, g.max_size, g.status AS group_status,
+       gm.user_id, gm.role, gm.status AS member_status, gm.joined_at
+FROM groups g
+JOIN group_members gm ON gm.group_id = g.id
+WHERE g.id = 26;
+```
+
+**Expected:** exactly 1 row: `group_id` 26, `title` "Trees and graphs exam prep", `leader_id` 2, `max_size` 8, `group_status` `active`, `user_id` 2, `role` `leader`, `member_status` `active`.
+
+**Manual step:** widen the columns before saving the image, so the full title and the column names show.
+
+**Note:** DBeaver may show `joined_at` as `19:56:21 +06`. That is a display quirk. The stored time is right: 19:56 UTC, which is 01:56 in Dhaka, the same moment as `created_at` in test 30.
+
+**Cleanup:** none. Group 26 stays as demo data. `npm run seed` removes it, because the seed wipes the development database.
 
 ---
 
@@ -1225,10 +1307,6 @@ Method and URL, JSON body.
 **Expected:** status, the reply shape, and the fields that must not appear.
 
 **Cleanup:** SQL or steps to put things back, if needed.
-
-**Screenshot:** `NN-short-name.png`
-
-Commit message (type `docs:`, first line ends with a period, one blank line, one paragraph).
 ````
 
 After the test is added here, also add one row to the log in Section 6, and update the two lines at the top of this file.
