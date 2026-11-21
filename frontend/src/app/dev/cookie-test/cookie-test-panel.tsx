@@ -4,8 +4,9 @@
 
 // usestate stores values that change on the screen (the typed email, the results).
 // useref stores a counter that survives re-renders without causing one.
-// formevent is the type of the form submit event. "type" means it is used only for type checks.
-import { useRef, useState, type FormEvent } from 'react';
+// formevent is the type of the form submit event. cssproperties is the type of an inline style object.
+// "type" means these two are used only for type checks.
+import { useRef, useState, type CSSProperties, type FormEvent } from 'react';
 // isaxioserror tells an axios error apart from any other error.
 // axiosresponse is the type of a successful axios reply.
 import { isAxiosError, type AxiosResponse } from 'axios';
@@ -18,6 +19,25 @@ type ResultLine = {
   label: string;
   status: string;
   body: string;
+};
+
+// tailwind (loaded by globals.css for the whole app) removes the browser's default borders
+// from inputs and buttons. on a dark background they become invisible.
+// these two small inline styles give them a visible border again. they are not tailwind classes,
+// so the page still follows the plain html rule for this test.
+// "currentColor" means "the same color as the text", so the border works on light and dark backgrounds.
+const fieldStyle: CSSProperties = {
+  border: '1px solid currentColor',
+  padding: '0.4rem 0.6rem',
+  borderRadius: '4px',
+};
+
+// the same border for buttons, plus a hand cursor so they look clickable.
+const buttonStyle: CSSProperties = {
+  border: '1px solid currentColor',
+  padding: '0.4rem 0.8rem',
+  borderRadius: '4px',
+  cursor: 'pointer',
 };
 
 // turns any error into a status and a readable body for the results list.
@@ -45,7 +65,7 @@ function describeError(error: unknown): { status: string; body: string } {
 }
 
 // the cookie test panel: a login form, four test buttons, and a list of results.
-// it uses plain html with a few inline layout styles only (no tailwind), as the ui workflow rule asks.
+// it uses plain html with a few inline styles only (no tailwind), as the ui workflow rule asks.
 export function CookieTestPanel() {
   // the email typed into the form.
   const [email, setEmail] = useState('');
@@ -152,6 +172,7 @@ export function CookieTestPanel() {
             required
             value={email}
             onChange={(event) => setEmail(event.target.value)}
+            style={fieldStyle}
           />
 
           <label htmlFor="password">Password</label>
@@ -162,9 +183,10 @@ export function CookieTestPanel() {
             required
             value={password}
             onChange={(event) => setPassword(event.target.value)}
+            style={fieldStyle}
           />
 
-          <button type="submit" disabled={busy}>
+          <button type="submit" disabled={busy} style={buttonStyle}>
             Log in
           </button>
         </form>
@@ -174,28 +196,28 @@ export function CookieTestPanel() {
         <h2 id="checks-heading">2. Check the session</h2>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
           {/* who is logged in now? the access cookie (path /) goes with this request. */}
-          <button type="button" disabled={busy} onClick={() => runRequest('GET /auth/me', () => api.get('/auth/me'))}>
+          <button type="button" disabled={busy} style={buttonStyle} onClick={() => runRequest('GET /auth/me', () => api.get('/auth/me'))}>
             Who am I (GET /auth/me)
           </button>
 
           {/* get two new cookies. the refresh cookie has path /api/v1/auth,
               so the browser sends it only to addresses under /api/v1/auth, like this one. */}
-          <button type="button" disabled={busy} onClick={() => runRequest('POST /auth/refresh', () => api.post('/auth/refresh'))}>
+          <button type="button" disabled={busy} style={buttonStyle} onClick={() => runRequest('POST /auth/refresh', () => api.post('/auth/refresh'))}>
             Refresh (POST /auth/refresh)
           </button>
 
           {/* end the session. the api clears both cookies and cancels the refresh token. */}
-          <button type="button" disabled={busy} onClick={() => runRequest('POST /auth/logout', () => api.post('/auth/logout'))}>
+          <button type="button" disabled={busy} style={buttonStyle} onClick={() => runRequest('POST /auth/logout', () => api.post('/auth/logout'))}>
             Log out (POST /auth/logout)
           </button>
 
           {/* prove that page javascript cannot see the httponly cookies. */}
-          <button type="button" onClick={showDocumentCookie}>
+          <button type="button" style={buttonStyle} onClick={showDocumentCookie}>
             Show document.cookie
           </button>
 
           {/* empty the results list. this changes nothing on the server. */}
-          <button type="button" onClick={() => setResults([])}>
+          <button type="button" style={buttonStyle} onClick={() => setResults([])}>
             Clear results
           </button>
         </div>
