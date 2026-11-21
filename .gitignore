@@ -107,3 +107,6 @@ $RECYCLE.BIN/
 
 
 backend/src/generated/
+
+local_addresses.txt
+documentation/backend_setups/studycircle_progress_tracker.md
