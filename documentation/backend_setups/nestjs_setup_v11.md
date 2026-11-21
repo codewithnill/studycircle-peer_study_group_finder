@@ -4,7 +4,7 @@
 
 ## What Changed in This Version
 
-This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message. Part 11 (Step 58) adds the read routes for the active subjects and levels. Part 12 (Step 59) adds creating, viewing, and editing study groups.
+This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message. Part 11 (Step 58) adds the read routes for the active subjects and levels. Part 12 (Step 59) adds creating, viewing, and editing study groups. Step 60 clears the 19 old lint warnings, so `npm run lint` now reports 0 warnings and 0 errors.
 
 | Type | What | Where in this file |
 |---|---|---|
@@ -17,6 +17,7 @@ This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 5
 | ADDED | Part 10: `@CurrentUser()` uses the shared `UNAUTHENTICATED_MESSAGE`, the guard uses a type-only import, a new decorator spec, and the dropped `auth.e2e-spec.ts` cleanup | Part 10, Step 57 |
 | ADDED | Part 11: `GET /subjects` and `GET /levels` in a new `lookups` module, the decisions, the tests, and the known limits | Part 11, Step 58 |
 | ADDED | Part 12: `POST /groups`, `GET /groups/:id`, and `PATCH /groups/:id`, the eight group decisions, the transaction for the leader row, the tests, and the known limits | Part 12, Step 59 |
+| CHANGED | The demo controllers in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts` use `this: void`, so the 19 `unbound-method` lint warnings are gone | Part 12, Step 60 |
 | ADDED | Known limits of the profile routes | Part 10, end |
 | REMOVED | Two known-limit rows (the lowercase decorator message, and the `auth.e2e-spec.ts` cookie helpers), because Step 57 settled both | Known Limits of the Profile Routes |
 | REMOVED | The known-limit row "No route lists the subjects a person can pick", because Step 58 added that route | Known Limits of the Profile Routes |
@@ -1247,7 +1248,7 @@ Both variables are checked at start-up. The app **refuses to start** when `JWT_A
 | `src/auth/dto/register.dto.ts` | The allowed input for register. The password must be at least 8 characters. Unknown fields (like `role`) are refused with `400`. |
 | `src/auth/dto/login.dto.ts` | The allowed input for login. |
 
-The register DTO does not list `role`, so nobody can choose to become an admin. The `ValidationPipe` from Step 18 refuses the extra field. This was checked in Postman (screenshot 03) and by an e2e test (Step 47).
+The register DTO does not list `role`, so nobody can choose to become an admin. The `ValidationPipe` from Step 18 refuses the extra field. This was checked in Postman (test 03) and by an e2e test (Step 47).
 
 ## Step 38 — Add the Token Service
 
@@ -1882,7 +1883,7 @@ The register form and the profile edit form must never disagree, so their rules 
 | Unit tests | `npm test` | 163 tests pass in 16 suites (165 in 17 after Step 57) |
 | E2E tests | `npm run test:e2e` | 44 tests pass in 4 suites, and the output names `studycircle_test` |
 | Real server | `npm run start:dev` | The five `Mapped {/api/v1/users/...}` lines appear, and `http://localhost:3000/api/v1` gives `{"data":"Hello World!"}` |
-| Postman | Tests 20 to 29 in `postman_manual_api_tests.md` | All pass. The screenshots are `20-profile-own-success.png` to `29-profile-own-no-login-401.png` |
+| Postman | Tests 20 to 29 in `postman_manual_api_tests.md` | All pass. The screenshots are saved in `screenshots/postman_manual_api_testing/` |
 | Development data | DBeaver on `studycircle`: `SELECT COUNT(*) FROM users;` | Not `0` |
 | `package.json` | `git --no-pager diff package.json` | No change |
 
@@ -1916,11 +1917,11 @@ The register form and the profile edit form must never disagree, so their rules 
 | Check | Command | Expected |
 |---|---|---|
 | Types | `npx tsc --noEmit` | Prints nothing |
-| Lint | `npm run lint` | 0 errors. The 19 `unbound-method` warnings are older, in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts`, and are not part of this step. |
+| Lint | `npm run lint` | 0 errors. At that time it also showed 19 older `unbound-method` warnings in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts`. Step 60 removed them, so it now shows 0 warnings. |
 | Unit tests | `npm test` | 165 tests pass in 17 suites (it was 163 in 16) |
 | E2E tests | `npm run test:e2e` | 44 tests pass in 4 suites (no change), and the output names `studycircle_test` |
 
-**About the 19 lint warnings:** those tests pass a method like `DemoController.prototype.closed` to a fake context, only so the guard can read the `@Public()` or `@Roles()` mark on it. The method is never called, so the "may lose `this`" risk cannot happen there. They can be cleaned up later as a separate small item.
+**About the 19 lint warnings:** those tests pass a method like `DemoController.prototype.closed` to a fake context, only so the guard can read the `@Public()` or `@Roles()` mark on it. The method is never called, so the "may lose `this`" risk cannot happen there. They were cleaned up on 22 November 2026 in Step 60.
 
 Commit: the three files above, with the subject `fix: use the shared login message in the current user decorator.`
 
@@ -1937,7 +1938,7 @@ Commit: the three files above, with the subject `fix: use the shared login messa
 
 **What problem this solves:** a student who creates a group must pick a subject and a level, and a student who edits a profile must pick subjects of interest. Both forms need dropdowns filled with the real lists. Without these routes, the frontend would have to type the lists by hand, and a subject the admin hides would still be offered. These two routes give the frontend the live lists, so every choice a student makes is a real, active one.
 
-> **Status (21 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings are unchanged, and none is in a `lookups` file). `npm test` passes 171 tests in 19 suites (it was 165 in 17). `npm run test:e2e` passes 48 tests in 5 suites (it was 44 in 4), and the output names `studycircle_test`.
+> **Status (21 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings were still there, and none was in a `lookups` file. Step 60 removed them later). `npm test` passes 171 tests in 19 suites (it was 165 in 17). `npm run test:e2e` passes 48 tests in 5 suites (it was 44 in 4), and the output names `studycircle_test`.
 
 **Part 11 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. Only `app.module.ts` changed, to list the new module.
 
@@ -1990,7 +1991,7 @@ The unit tests use small hand-written fakes instead of `jest.fn()`. Each fake sa
 | Check | Command | Expected |
 |---|---|---|
 | Types | `npx tsc --noEmit` | Prints nothing |
-| Lint | `npm run lint` | 0 errors. The 19 old warnings stay, and none is in a `lookups` file. |
+| Lint | `npm run lint` | 0 warnings and 0 errors (since Step 60) |
 | Unit tests | `npm test` | 171 tests pass in 19 suites |
 | E2E tests | `npm run test:e2e` | 48 tests pass in 5 suites, and the output names `studycircle_test` |
 | Postman (optional) | Log in, then `GET http://localhost:3000/api/v1/subjects` and `GET http://localhost:3000/api/v1/levels` | `200`. With the seed data: 12 subjects sorted by name and 3 levels (Beginner, Intermediate, Advanced). |
@@ -2010,7 +2011,7 @@ Commit: the 7 files above, with the subject `feat: add read routes for the activ
 
 **What problem this solves:** this is the heart of StudyCircle. Without it, students fall back to messy social media posts that have no clear subject, no size, and no owner. Now a student can create a proper study group with a subject, a level, an exam date, a mode, and a size. Every group has exactly one leader from the first moment, only that leader can change the details, and other students see a clean group page with the seats that are still free.
 
-> **Status (22 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings are unchanged, and none is in a `groups` file). `npm test` passes 185 tests in 21 suites (it was 171 in 19). `npm run test:e2e` passes 62 tests in 6 suites (it was 48 in 5), and the output names `studycircle_test`. `npm run start:dev` shows the three new `Mapped {/api/v1/groups...}` lines.
+> **Status (22 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings were still there, and none was in a `groups` file. Step 60 removed them the same day). `npm test` passes 185 tests in 21 suites (it was 171 in 19). `npm run test:e2e` passes 62 tests in 6 suites (it was 48 in 5), and the output names `studycircle_test`. `npm run start:dev` shows the three new `Mapped {/api/v1/groups...}` lines.
 
 **Part 12 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. `app.module.ts` already imported `GroupsModule`.
 
@@ -2093,12 +2094,35 @@ The service has no unit test of its own. Its real work is the transaction, the m
 | Check | Command | Expected |
 |---|---|---|
 | Types | `npx tsc --noEmit` | Prints nothing |
-| Lint | `npm run lint` | 0 errors. The 19 old warnings stay, and none is in a `groups` file. |
+| Lint | `npm run lint` | 0 warnings and 0 errors (since Step 60) |
 | Unit tests | `npm test` | 185 tests pass in 21 suites |
 | E2E tests | `npm run test:e2e` | 62 tests pass in 6 suites, and the output names `studycircle_test` |
 | Real server | `npm run start:dev` | The three `Mapped {/api/v1/groups...}` lines appear |
+| Postman (round 3) | Tests 30 to 39 in `postman_manual_api_tests.md` | All pass. The screenshots are saved in `screenshots/postman_manual_api_testing/` |
+
+**Postman round 3 (22 November 2026).** Run as the seed students Anika Rahman (`student01`, id 2, the leader) and Rafi Sarker (`student02`, id 3). It created group 26 in the development database. Create gave `201` with `my_role: "leader"`, the three bad creates gave `400`, Rafi saw the group with `my_role: null` and no email, an unknown id gave `404`, Rafi's edit gave `403`, Anika's edit trimmed the title and set the size to 8 (`seats_left: 7`), an empty edit gave `400`, and DBeaver showed exactly one `group_members` row for group 26, with `role = leader`. The `409` size case needs more members, so it is covered only by the e2e test until join requests exist (week 5).
+
+**DBeaver note:** DBeaver may show a `timestamptz` value with the UTC clock time and a `+06` label (for example `19:56:21 +06`). The stored value is right. The API shows the same moment as `19:56:21Z`, which is 01:56 in Dhaka.
 
 Commit: the 9 files above, with the subject `feat: add create, view, and edit routes for study groups.`
+
+## Step 60 — Remove the Old Lint Warnings
+
+**What problem this solves:** `npm run lint` showed 19 warnings on every run. Old warnings that nobody fixes teach people to ignore the lint output, so a real new warning could be missed. Now the lint output is clean, and any new warning stands out at once.
+
+**Where they came from.** The rule `typescript(unbound-method)` warns when a class method is passed around on its own (for example `DemoController.prototype.closed`), because a method that uses `this` breaks when it is called without its object. In `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts`, the tests pass the methods of a small `DemoController` to a fake context, only so the guard can read the `@Public()` or `@Roles()` mark on them. The methods are never called, so the risk could not happen, but the rule cannot know that.
+
+**The fix.** Each demo method now says `this: void`, for example `closed(this: void): void {}`. That tells TypeScript and the lint rule that the method never uses `this`, so passing it around on its own is safe. Only the demo classes changed. Every test is the same. Docs: https://www.typescriptlang.org/docs/handbook/2/functions.html#declaring-this-in-a-function
+
+**Verify Step 60.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Lint | `npm run lint` | `Found 0 warnings and 0 errors.` |
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Unit tests | `npm test` | 185 tests pass in 21 suites (no change) |
+
+Commit: `src/auth/guards/jwt-auth.guard.spec.ts` and `src/auth/guards/roles.guard.spec.ts`.
 
 ## Known Limits of the Group Routes
 
@@ -2303,7 +2327,7 @@ This shows only what is **new or changed** after Part 7. Everything else stays a
 ```text
 studycircle-peer_study_group_finder/
 ├── screenshots/
-│   └── postman_manual_api_testing/   (19 screenshots: 01-register-success ... 19-rate-limit-429)
+│   └── postman_manual_api_testing/   (19 screenshots, tests 01 to 19)
 └── backend/
     ├── .env.example                  (CHANGED: JWT_ACCESS_SECRET and FRONTEND_URL added)
     ├── package.json                  (CHANGED: @nestjs/jwt, @nestjs/throttler, cookie-parser, @types/cookie-parser)
@@ -2384,7 +2408,7 @@ This shows only what is **new or changed** after Part 10, including Step 57. Eve
 ```text
 studycircle-peer_study_group_finder/
 ├── screenshots/
-│   └── postman_manual_api_testing/   (CHANGED: 10 new screenshots, 20-profile-own-success ... 29-profile-own-no-login-401)
+│   └── postman_manual_api_testing/   (CHANGED: 10 new screenshots, tests 20 to 29)
 └── backend/
     ├── src/
     │   ├── auth/
@@ -2539,7 +2563,7 @@ backend/
 | `POST /users/me/subjects` gives `400` with `subject_id must be an integer number` | The id was sent as text, like `"5"`. | Send a JSON number: `{ "subject_id": 5 }`. |
 | A public profile gives `404` for a student who exists | The account is suspended or deleted. This is on purpose, and the reply is the same as for an unknown id. | Check `status` and `deleted_at` in DBeaver. Restore the account if it was suspended for a test. |
 | An e2e test that expects `404` passes, but the route is broken | An error test can pass for the wrong reason when everything gives the same error. | Pair every error test with a success test on the same route. |
-| `npm run lint` shows `typescript(unbound-method)` warnings in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts` | Those tests pass `DemoController.prototype.<method>` to a fake context so the guard can read a route mark. The method is never called. | Safe to leave. They are warnings, not errors (Part 10, Step 57). Clean them up later as a separate small item. |
+| `npm run lint` shows a `typescript(unbound-method)` warning in a test | A test passes a class method on its own, for example `DemoController.prototype.closed`, so the lint rule worries it may lose `this`. | If the method never uses `this`, write it as `name(this: void): void {}` (Part 12, Step 60). If it does use `this`, pass an arrow function instead. Keep the lint output at 0 warnings. |
 | `GET /subjects` or `GET /levels` gives `{ "data": [] }` | No active rows exist. The development database may be empty, or every row is hidden (`is_active = false`). | Run `npm run seed` from `backend/`, or check `is_active` in DBeaver. An empty list is the correct reply, not a bug. |
 | A subject is in the database but not in `GET /subjects` | The subject is hidden (`is_active = false`). Hidden rows are left out on purpose. | Show it again in DBeaver (`UPDATE subjects SET is_active = true WHERE id = ...;`). The admin routes for this come in week 9. |
 | `POST /groups` gives `400`, `An in-person group needs a location` | `mode` is `in_person` and `location` is missing, empty, or only spaces. | Send a place, for example `"location": "Library room 2"`, or use `"mode": "online"`. |
@@ -2548,6 +2572,7 @@ backend/
 | `POST /groups` gives `404`, `This subject does not exist` or `This level does not exist` | The id is unknown, or the subject or level is hidden. | Pick an id from `GET /subjects` or `GET /levels`. |
 | `PATCH /groups/:id` gives `403`, `Only the group leader can do this` | The person is a member or a stranger, not the leader. | Log in as the leader. The leader is read from `groups.leader_id`. |
 | `PATCH /groups/:id` gives `409`, `The group already has more members than this size` | The new `max_size` is smaller than the number of active members (the leader counts too). | Pick a size at least as big as `member_count` on the group page. |
+| DBeaver shows `joined_at` or `created_at` as `19:56 +06` when the real Dhaka time was 01:56 | A DBeaver display quirk with `timestamptz` columns. The stored value is right. | Compare with the API reply, which shows UTC (`...Z`). Leave the column out of report screenshots if it confuses readers. |
 | `GET /groups/:id` gives `404` for a group that is in the database | The group is removed, deleted (`deleted_at` is filled), or archived and the person is not an active member. | Check `status`, `deleted_at`, and `group_members` in DBeaver. This is on purpose. |
 | `POST /groups` gives `429` | More than 10 groups in one minute from one address. | Wait 60 seconds. The reply has a `Retry-After` header. |
 
@@ -2561,7 +2586,7 @@ backend/
 | Install packages from the lock file (fresh clone) | `npm ci` |
 | Start the development server | `npm run start:dev` |
 | Build the backend | `npm run build` |
-| Check the code style (oxlint, changes no files) | `npm run lint` |
+| Check the code style (oxlint, changes no files, expect 0 warnings and 0 errors) | `npm run lint` |
 | Run unit tests | `npm test` |
 | Run end-to-end tests (builds `studycircle_test` from the migrations first, then runs) | `npm run test:e2e` |
 | Run only the auth e2e tests | `npm run test:e2e -- auth.e2e-spec` |
@@ -2692,3 +2717,4 @@ backend/
 - Every change to a group's size runs in a Serializable transaction that counts the active members first.
 - A removed group, a deleted group, and an archived group for a non-member all give the same `404` as an unknown id.
 - Dates with no time (like `exam_date`) are received and sent as `YYYY-MM-DD` text, so no time zone can move the day.
+- Keep `npm run lint` at 0 warnings and 0 errors. Fix a new warning in the same commit that causes it.
