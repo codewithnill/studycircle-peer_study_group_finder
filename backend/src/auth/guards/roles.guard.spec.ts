@@ -10,14 +10,17 @@ import { Roles } from '../decorators/roles.decorator';
 import { FORBIDDEN_MESSAGE, RolesGuard } from './roles.guard';
 
 // a tiny demo class with methods that need different roles.
+// the tests never call these methods. they only hand them to the fake context, so the guard can read the @Roles() mark.
+// "this: void" says the method never uses "this". so passing the method around on its own (DemoController.prototype.adminOnly)
+// is safe, and the lint rule "unbound-method" has nothing to warn about.
 class DemoController {
-  anyone(): void {}
+  anyone(this: void): void {}
 
   @Roles(Role.admin)
-  adminOnly(): void {}
+  adminOnly(this: void): void {}
 
   @Roles(Role.admin, Role.student)
-  adminOrStudent(): void {}
+  adminOrStudent(this: void): void {}
 }
 
 // builds a fake context for one method of the demo class, with the given person on the request.

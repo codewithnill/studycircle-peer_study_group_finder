@@ -16,6 +16,8 @@ import { ChatModule } from './chat/chat.module';
 import { GroupsModule } from './groups/groups.module';
 import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
+// imports the lookups module, which gives the lists of subjects and levels for dropdowns.
+import { LookupsModule } from './lookups/lookups.module';
 
 // @Module() is the decorator that tells nestjs this is a module.
 @Module({
@@ -32,13 +34,15 @@ import { UsersModule } from './users/users.module';
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
     // adds the prisma module to the imports so the database is available.
     PrismaModule,
-    // the six feature modules. they are empty for now and get filled in week by week.
+    // the six feature modules. they get filled in week by week.
     AuthModule,
     UsersModule,
     GroupsModule,
     SessionsModule,
     ChatModule,
     AdminModule,
+    // the shared lists of subjects and levels. groups and profiles both use them.
+    LookupsModule,
   ],
   // controllers handle incoming http requests.
   controllers: [AppController],

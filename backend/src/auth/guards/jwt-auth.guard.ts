@@ -14,12 +14,16 @@ import { UsersService } from '../../users/users.service';
 // import: the cookie name and the token service.
 import { ACCESS_TOKEN_COOKIE } from '../auth.constants';
 import { TokenService } from '../token.service';
-// import: the mark name and the type of the person that this guard puts on the request.
-import { AuthUser } from '../decorators/current-user.decorator';
+// import type: the shape of the person that this guard puts on the request.
+// "import type" borrows only the shape, so the built code has no import of the decorator file at all.
+// this matters because the decorator file imports UNAUTHENTICATED_MESSAGE from here. a type-only import keeps the two files from loading each other in a loop.
+import type { AuthUser } from '../decorators/current-user.decorator';
+// import: the mark name that @Public() puts on a route.
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 // the one message for every failure here: no cookie, a bad token, an expired token, a suspended or deleted account.
 // it starts with a capital letter, like every message in the api shape rules (section 3).
+// @CurrentUser() uses this same constant for its own fallback 401 (tracker item 68).
 // safety: a different message for each case would tell an attacker what went wrong with a stolen or forged token.
 export const UNAUTHENTICATED_MESSAGE = 'Please log in to continue';
 

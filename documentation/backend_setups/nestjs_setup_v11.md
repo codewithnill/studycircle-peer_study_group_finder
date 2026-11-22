@@ -1,10 +1,10 @@
 # StudyCircle — Backend Setup (NestJS + Prisma + PostgreSQL)
 
-**Last updated:** 20 November 2026
+**Last updated:** 22 November 2026
 
 ## What Changed in This Version
 
-This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes (tracker item 23), with the first separate update DTO (tracker item 61), a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9.
+This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 51 to 56): the profile routes, with the first separate update DTO, a safe id pipe, 49 new unit tests, and 24 new e2e tests. The v10 changes (Part 9: the plain `429` message and the capital-letter auth messages) are still described in Part 9. A small fix on 21 November 2026 adds Step 57: `@CurrentUser()` now uses the shared login message. Part 11 (Step 58) adds the read routes for the active subjects and levels. Part 12 (Step 59) adds creating, viewing, and editing study groups. Step 60 clears the 19 old lint warnings, so `npm run lint` now reports 0 warnings and 0 errors. Part 13 (Step 61) adds the group search (`GET /groups`) with filters, two sorts, pages, the shared `PaginationQueryDto`, and the first unit tests for the group service.
 
 | Type | What | Where in this file |
 |---|---|---|
@@ -14,11 +14,23 @@ This version keeps everything from v10 (Steps 1 to 50). It adds Part 10 (Steps 5
 | ADDED | Part 10: the profile service methods, the safe select lists and reply shapes, and the Serializable transaction for adding a subject | Part 10, Step 54 |
 | ADDED | Part 10: `users.controller.ts` with five locked routes | Part 10, Step 55 |
 | ADDED | Part 10: the new unit and e2e tests, the login helper, the Postman round 2, and the checks | Part 10, Step 56 |
+| ADDED | Part 10: `@CurrentUser()` uses the shared `UNAUTHENTICATED_MESSAGE`, the guard uses a type-only import, a new decorator spec, and the dropped `auth.e2e-spec.ts` cleanup | Part 10, Step 57 |
+| ADDED | Part 11: `GET /subjects` and `GET /levels` in a new `lookups` module, the decisions, the tests, and the known limits | Part 11, Step 58 |
+| ADDED | Part 12: `POST /groups`, `GET /groups/:id`, and `PATCH /groups/:id`, the eight group decisions, the transaction for the leader row, the tests, and the known limits | Part 12, Step 59 |
+| CHANGED | The demo controllers in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts` use `this: void`, so the 19 `unbound-method` lint warnings are gone | Part 12, Step 60 |
+| ADDED | Part 13: `GET /groups` (the search), the nine search decisions, the shared `PaginationQueryDto`, `SearchGroupsDto`, the group card, why the search reads outside a transaction, the tests, Postman round 4, and the known limits | Part 13, Step 61 |
+| REMOVED | The known-limit row "No group list or search yet", because Step 61 added the search | Known Limits of the Group Routes |
+| ADDED | Folder tree after the group search | Final Folder Structure (After Group Search) |
+| ADDED | Troubleshooting rows, cheat sheet rows, and rules for the group search | Troubleshooting, Quick Cheat Sheet, Rules to Never Forget |
 | ADDED | Known limits of the profile routes | Part 10, end |
+| REMOVED | Two known-limit rows (the lowercase decorator message, and the `auth.e2e-spec.ts` cookie helpers), because Step 57 settled both | Known Limits of the Profile Routes |
+| REMOVED | The known-limit row "No route lists the subjects a person can pick", because Step 58 added that route | Known Limits of the Profile Routes |
 | ADDED | Folder tree after the profile routes | Final Folder Structure (After Profile Routes) |
+| ADDED | Folder tree after the subject and level lists | Final Folder Structure (After Subject and Level Lists) |
+| ADDED | Folder tree after the group routes | Final Folder Structure (After Group Routes) |
 | ADDED | Troubleshooting rows, cheat sheet rows, and rules for the profile routes | Troubleshooting, Quick Cheat Sheet, Rules to Never Forget |
 | CHANGED | `register.dto.ts` now uses the shared limits and turns an empty `department` into `null` | Part 10, Step 52 |
-| UPDATED | The unit test count is now 163 in 16 suites (it was 114 in 12). The e2e count is now 44 in 4 suites (it was 20 in 3) | Part 10, Step 56 |
+| UPDATED | The unit test count is now 214 in 22 suites (it was 114 in 12, 163 in 16 after Step 56, 165 in 17 after Step 57, 171 in 19 after Step 58, and 185 in 21 after Step 59). The e2e count is now 67 in 6 suites (it was 20 in 3, 44 in 4 after Step 56, 48 in 5 after Step 58, and 62 in 6 after Step 59) | Parts 10 to 13 |
 | UPDATED | The API shape file is now `studycircle_api_shape_v6.md` | Whole file |
 | UPDATED | The "What This Setup Produces" table counts the new files | What This Setup Produces |
 
@@ -28,11 +40,11 @@ StudyCircle is a peer study group finder platform maintained as one monorepo. Th
 
 | Location | Purpose | Final state |
 |---|---|---|
-| `backend/` | NestJS and TypeScript backend | Scaffolded, installed, runnable, connected to PostgreSQL through Prisma, with the shared API layer, one shared app setup function, the auth layer, the profile routes, six feature modules, a seed script, and a test database setup for e2e tests |
+| `backend/` | NestJS and TypeScript backend | Scaffolded, installed, runnable, connected to PostgreSQL through Prisma, with the shared API layer, one shared app setup function, the auth layer, the profile routes, the subject and level lists, the group create, view, edit, and search routes, six feature modules and the `lookups` module, a seed script, and a test database setup for e2e tests |
 | `backend/prisma/` | Prisma schema, migrations, and the seed script | 17 tables, 10 enums, 2 migrations, and `seed.ts` with 11 helper files in `seed/` |
-| `backend/src/common/` | Shared fixed words, helpers, pipes, interceptor, and filter | 20 files that apply the API shape rules (15 from Part 3, and 5 from Part 10: `database-limits.ts`, the text helpers, and the safe id pipe, each with its spec where it has one) |
+| `backend/src/common/` | Shared fixed words, helpers, pipes, interceptor, and filter | 21 files that apply the API shape rules (15 from Part 3, 5 from Part 10: `database-limits.ts`, the text helpers, and the safe id pipe, each with its spec where it has one, and 1 from Part 13: the shared `PaginationQueryDto`) |
 | `backend/src/app.setup.ts` | The shared app setup | One function, `configureApp()`, used by `main.ts` and the e2e tests |
-| `backend/test/` | End-to-end tests and the test database setup | 1 app setup test file, 1 database check test file, 1 auth test file, 1 users test file, and 6 support files in `support/` |
+| `backend/test/` | End-to-end tests and the test database setup | 1 app setup test file, 1 database check test file, 1 auth test file, 1 users test file, 1 lookups test file, 1 groups test file, and 6 support files in `support/` |
 | `frontend/` | Planned Next.js frontend with React 19, TypeScript, and Tailwind CSS | Empty placeholder folder |
 | `documentation/` | Project documentation | Contains this setup reference |
 | `.git/` | Monorepo Git metadata | At the repository root only |
@@ -601,7 +613,7 @@ All of these files are in `backend/src/common/`.
 | Setting | What it does |
 |---|---|
 | `whitelist: true` | Removes any field that the DTO does not list. This stops "mass assignment", where someone adds a field like `role: "admin"`. |
-| `forbidNonWhitelisted: true` | Refuses the request with a 400 instead of dropping the field quietly. A DTO for a list route must therefore list `page` and `limit` (with `@IsOptional()` only). |
+| `forbidNonWhitelisted: true` | Refuses the request with a 400 instead of dropping the field quietly. A DTO for a list route must therefore list `page` and `limit` (with `@IsOptional()` only). Since Part 13, a list DTO gets them by extending the shared `PaginationQueryDto`. |
 | `transform: true` | Gives the controller a real DTO object after the checks pass. |
 | `validationError: { target: false, value: false }` | Error objects never carry the input. A failed password check must not carry the password around. |
 | `exceptionFactory` | Builds the `errors` list with snake_case field names. |
@@ -677,7 +689,7 @@ Run these checks:
 Checks that need a real route:
 - Send a body with a snake_case key. It must reach the code as camelCase and be validated. **Done:** the auth e2e test sends `academic_year` on register (Step 47).
 - Send a body with a field that the DTO does not list. It must give a 400 with an `errors` item. **Done:** the auth e2e test sends `role` on register (Step 47).
-- Break each of the two partial indexes (a second pending join request, a second active leader) with a real request. Check which database code comes back. The map above expects `P2002` and a 409 reply. **Still open:** it needs the join request and leadership routes (week 5, tracker item 57).
+- Break each of the two partial indexes (a second pending join request, a second active leader) with a real request. Check which database code comes back. The map above expects `P2002` and a 409 reply. **Still open:** it needs the join request and leadership routes (week 5).
 
 ---
 
@@ -840,7 +852,7 @@ These files create the fake data. Each one has one job.
 7. Prisma Client fills `updated_at` by itself. Raw SQL would need to supply it.
 8. All data is fake. No real person is used.
 
-**Not seeded yet:** `group_files`, `refresh_tokens`, `notifications`, `reports`, and `admin_actions`. The `group_files` rows need real files on disk. The team decided that files are saved on the server disk behind one small file service. That service is built in week 7, so these rows are added then. The other four fill up when their features are built. Update the seed in week 11 (tracker item 42).
+**Not seeded yet:** `group_files`, `refresh_tokens`, `notifications`, `reports`, and `admin_actions`. The `group_files` rows need real files on disk. The team decided that files are saved on the server disk behind one small file service. That service is built in week 7, so these rows are added then. The other four fill up when their features are built. Update the seed in week 11.
 
 **When you change the group plan in `seed-groups.ts`:** also change `EXPECTED_GROUPS` in `verify.ts`, or the group count check fails.
 
@@ -1073,7 +1085,7 @@ Then check the databases in DBeaver:
 
 Also run `git status` from the repository root. It must not show `.env`, `node_modules/`, or anything in `src/generated/`.
 
-**Known gap (solved in Part 8).** E2E tests used to build the app from `AppModule` and skip `main.ts`, so the `/api/v1` prefix, the global pipes, the interceptor, the filter, the cookie reader, and CORS were not active in tests. This was tracker item 51. The team chose one shared setup function (option a). Since Part 8, `main.ts` and the e2e tests both call `configureApp()` from `src/app.setup.ts`, and every e2e test builds its app with `createTestApp()`. See Steps 45 and 46.
+**Known gap (solved in Part 8).** E2E tests used to build the app from `AppModule` and skip `main.ts`, so the `/api/v1` prefix, the global pipes, the interceptor, the filter, the cookie reader, and CORS were not active in tests. The team chose one shared setup function (option a). Since Part 8, `main.ts` and the e2e tests both call `configureApp()` from `src/app.setup.ts`, and every e2e test builds its app with `createTestApp()`. See Steps 45 and 46.
 
 # Part 6 — Dependency Audit Review (ADDED)
 
@@ -1173,7 +1185,7 @@ Known issues: npm audit reports 20 low and moderate findings, all in the Jest te
 
 **What problem this solves:** a study group platform is only safe when the server knows who is calling. Without login, anyone could join a group, read private chat, or pretend to be a leader. This part adds sign-up, login, logout, and a lock on every route, so the later group, chat, and admin features can trust "who is this person".
 
-> **Status (17 November 2026):** the code in this part is written, committed, and checked. `npx tsc --noEmit` is clean and `npm run build` has no errors. `npm test` passes 111 tests in 12 suites (it was 38). `npm run test:e2e` passes 4 tests in 2 suites. The rate limit was tested by hand (5 wrong logins give `401`, then `429` with a `Retry-After` header). A Postman and DBeaver round of 19 screenshots is saved in `screenshots/postman_manual_api_testing/` at the repository root. The open item at that time (tracker item 51, the e2e tests skipped `main.ts`) is solved in Part 8, and the auth routes now have 15 e2e tests (20 e2e tests in 3 suites in total).
+> **Status (17 November 2026):** the code in this part is written, committed, and checked. `npx tsc --noEmit` is clean and `npm run build` has no errors. `npm test` passes 111 tests in 12 suites (it was 38). `npm run test:e2e` passes 4 tests in 2 suites. The rate limit was tested by hand (5 wrong logins give `401`, then `429` with a `Retry-After` header). A Postman and DBeaver round of 19 screenshots is saved in `screenshots/postman_manual_api_testing/` at the repository root. The open item at that time (the e2e tests skipped `main.ts`) is solved in Part 8, and the auth routes now have 15 e2e tests (20 e2e tests in 3 suites in total).
 
 **Part 7 did not change `tsconfig.json`, `prisma.config.ts`, the schema, or any migration.** Passport is **not** used. The login check is a small custom guard, so there is one less package to learn and audit.
 
@@ -1240,7 +1252,7 @@ Both variables are checked at start-up. The app **refuses to start** when `JWT_A
 | `src/auth/dto/register.dto.ts` | The allowed input for register. The password must be at least 8 characters. Unknown fields (like `role`) are refused with `400`. |
 | `src/auth/dto/login.dto.ts` | The allowed input for login. |
 
-The register DTO does not list `role`, so nobody can choose to become an admin. The `ValidationPipe` from Step 18 refuses the extra field. This was checked in Postman (screenshot 03) and by an e2e test (Step 47).
+The register DTO does not list `role`, so nobody can choose to become an admin. The `ValidationPipe` from Step 18 refuses the extra field. This was checked in Postman (test 03) and by an e2e test (Step 47).
 
 ## Step 38 — Add the Token Service
 
@@ -1437,7 +1449,7 @@ These are known and accepted for the MVP. Write the important ones in the README
 
 **Part 8 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `package.json`, or `package-lock.json`.** No new packages were installed. `supertest` and `@types/supertest` were already in the scaffold.
 
-## Step 44 — Housekeeping Check (Tracker Item 54)
+## Step 44 — Housekeeping Check
 
 Three small checks, all run from `backend/`.
 
@@ -1536,7 +1548,7 @@ Note: a rule with a trailing `/` (like `coverage/`) matches only a folder. If th
 
 Commit: `backend/.gitignore` only.
 
-## Step 45 — Share the App Setup (Tracker Item 51)
+## Step 45 — Share the App Setup
 
 **The problem.** An e2e test builds the app with `Test.createTestingModule({ imports: [AppModule] })` and `createNestApplication()`. That skips `main.ts`, so every line there was missing in tests:
 
@@ -1659,7 +1671,7 @@ Prisma may print an "Update available 7.10.1 -> 8.0.0-rc..." box during the e2e 
 
 **Part 9 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, the throttler settings, `package.json`, or `package-lock.json`.** No new packages were installed. The 3-month plan and the schema file needed no change.
 
-## Step 49 — Send a Plain Sentence for the 429 Reply (Tracker Item 53)
+## Step 49 — Send a Plain Sentence for the 429 Reply
 
 **Where the old message came from:**
 1. The `ThrottlerGuard` counts the calls. On the 6th login in one minute, it puts the `Retry-After` header on the reply, then throws a `ThrottlerException`. That is a normal NestJS `HttpException` with status `429` and the text `ThrottlerException: Too Many Requests`.
@@ -1670,7 +1682,7 @@ Prisma may print an "Update available 7.10.1 -> 8.0.0-rc..." box during the e2e 
 
 | Option | Summary | Verdict |
 |---|---|---|
-| **1. Fix it in the exception filter (chosen)** | In case 1 of `describe()`, any `429` uses `DEFAULT_MESSAGES[429]`. | All error wording stays in one place, the filter. It is a small change, it is easy to unit test, and it also covers the later rate limits on join requests, uploads, and chat messages (tracker item 58). |
+| **1. Fix it in the exception filter (chosen)** | In case 1 of `describe()`, any `429` uses `DEFAULT_MESSAGES[429]`. | All error wording stays in one place, the filter. It is a small change, it is easy to unit test, and it also covers the later rate limits on join requests, uploads, and chat messages. |
 | 2. Set `errorMessage` in the throttler settings | `@nestjs/throttler` has an `errorMessage` option, but only in the object form of `ThrottlerModule.forRoot()`, not in the array form used in `app.module.ts`. | It would change the rate limit setup just to change a sentence, and the wording would live in two places. |
 
 The one cost of option 1: if a service ever throws its own `429` with a special message, the filter replaces it with the plain sentence. No code does that today.
@@ -1731,7 +1743,9 @@ Commit: `auth.service.ts`, `guards/jwt-auth.guard.ts`, `auth.controller.ts`, `au
 
 **What problem this solves:** step 2 of the main journey is "the student fills a short profile". When a student asks to join a group, the leader needs to see who is asking: a name, a department, a year, a short bio, and the subjects the student cares about. Without a profile, a leader would approve strangers blindly, and the platform would fall back to the "messy social media group" problem. This part lets each student build and edit their own profile, and lets other logged-in students see a safe public version of it, with no email and nothing that reveals a hidden account.
 
-> **Status (20 November 2026):** the work in this part is written, committed, and checked (tracker item 23). `npx tsc --noEmit` prints nothing and `npm run build` has no errors. `npm test` passes 163 tests in 16 suites (it was 114 in 12). `npm run test:e2e` passes 44 tests in 4 suites (it was 20 in 3), and the output names `studycircle_test`. `npm run start:dev` still works, the five new routes appear in the start-up log, and `GET http://localhost:3000/api/v1` still gives `{"data":"Hello World!"}`. A Postman round of 10 screenshots (tests 20 to 29) passed, and the two seed students used in it were put back and checked in DBeaver. `git diff -- package.json` printed nothing. The development database kept its demo data.
+> **Status (20 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing and `npm run build` has no errors. `npm test` passes 163 tests in 16 suites (it was 114 in 12). `npm run test:e2e` passes 44 tests in 4 suites (it was 20 in 3), and the output names `studycircle_test`. `npm run start:dev` still works, the five new routes appear in the start-up log, and `GET http://localhost:3000/api/v1` still gives `{"data":"Hello World!"}`. A Postman round of 10 screenshots (tests 20 to 29) passed, and the two seed students used in it were put back and checked in DBeaver. `git diff -- package.json` printed nothing. The development database kept its demo data.
+
+> **Update (21 November 2026):** Step 57 is written, committed, and checked. `npm test` now passes 165 tests in 17 suites. `npm run test:e2e` still passes 44 tests in 4 suites.
 
 **Part 10 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. Email change and password change are **not** part of this part. They belong in the auth module later, because they touch login details and tokens.
 
@@ -1778,7 +1792,7 @@ The register form and the profile edit form must never disagree, so their rules 
 
 | File | What it does |
 |---|---|
-| `src/users/dto/update-profile.dto.ts` (NEW) | The `PATCH /users/me` body. It lists **only** `name`, `department`, `academicYear`, and `bio`, all optional. It does **not** list `email`, `role`, `status`, `password`, or `id`, so the validation pipe refuses them with `400`. This is the first separate update DTO (tracker item 61). |
+| `src/users/dto/update-profile.dto.ts` (NEW) | The `PATCH /users/me` body. It lists **only** `name`, `department`, `academicYear`, and `bio`, all optional. It does **not** list `email`, `role`, `status`, `password`, or `id`, so the validation pipe refuses them with `400`. This is the first separate update DTO. |
 | `src/users/dto/add-subject.dto.ts` (NEW) | The `POST /users/me/subjects` body: `subjectId`, a whole number from 1 to `MAX_INT_ID`. The client sends `subject_id`. A text like `"5"` is refused. |
 | `src/common/pipes/parse-id.pipe.ts` (NEW, + spec) | Turns an id from the address into a safe number. Anything that can never be a row id gives `404` with the message the route chooses. |
 | `src/users/dto/users-dto.spec.ts` (NEW) | Unit tests for both DTOs. One test runs the real validation pipe and proves `property role should not exist`. |
@@ -1870,14 +1884,50 @@ The register form and the profile edit form must never disagree, so their rules 
 |---|---|---|
 | Types | `npx tsc --noEmit` | Prints nothing |
 | Build | `npm run build` | No errors |
-| Unit tests | `npm test` | 163 tests pass in 16 suites |
+| Unit tests | `npm test` | 163 tests pass in 16 suites (165 in 17 after Step 57) |
 | E2E tests | `npm run test:e2e` | 44 tests pass in 4 suites, and the output names `studycircle_test` |
 | Real server | `npm run start:dev` | The five `Mapped {/api/v1/users/...}` lines appear, and `http://localhost:3000/api/v1` gives `{"data":"Hello World!"}` |
-| Postman | Tests 20 to 29 in `postman_manual_api_tests.md` | All pass. The screenshots are `20-profile-own-success.png` to `29-profile-own-no-login-401.png` |
+| Postman | Tests 20 to 29 in `postman_manual_api_tests.md` | All pass. The screenshots are saved in `screenshots/postman_manual_api_testing/` |
 | Development data | DBeaver on `studycircle`: `SELECT COUNT(*) FROM users;` | Not `0` |
 | `package.json` | `git --no-pager diff package.json` | No change |
 
 **Commits:** one for the profile code (11 files) and one for the profile tests (7 files), then one per Postman screenshot.
+
+## Step 57 — Use the Shared Login Message in @CurrentUser()
+
+**What problem this solves:** the "please log in" reply must look the same everywhere. If a future route forgets its guard, the student still gets the same clean, capital-letter sentence as on every other route, and the code keeps only one copy of the text.
+
+**The problem.** `current-user.decorator.ts` threw its own text, `please log in to continue`, when no person was on the request. The guard uses `UNAUTHENTICATED_MESSAGE` (`Please log in to continue`). So the code had two copies of the same message, and one copy broke the capital-letter rule from Part 9. The fallback fires only when a route misses its guard, so no user saw it.
+
+**The files:**
+
+| File | Change |
+|---|---|
+| `src/auth/decorators/current-user.decorator.ts` (CHANGED) | Imports `UNAUTHENTICATED_MESSAGE` from the guard and throws it. The inner function is now a named export, `currentUserFactory`, and `CurrentUser` is built from it with `createParamDecorator(currentUserFactory)`. |
+| `src/auth/guards/jwt-auth.guard.ts` (CHANGED) | `import { AuthUser }` became `import type { AuthUser }`. Nothing else changed. |
+| `src/auth/decorators/current-user.decorator.spec.ts` (NEW) | 2 tests: the function gives back the person that the guard put on the request, and with no person it throws an `UnauthorizedException` with status `401` and exactly `UNAUTHENTICATED_MESSAGE`. |
+
+**Why `currentUserFactory` is exported:** a finished decorator made by `createParamDecorator` cannot be called like a normal function in a test. Exporting the inner function lets a unit test call it with a small fake context. Docs: https://docs.nestjs.com/custom-decorators
+
+**Why `import type` in the guard:** the decorator now imports a value from the guard, and the guard imports `AuthUser` from the decorator. Two files that import each other can load in a loop, and then one value can be `undefined` at start-up. `AuthUser` is only a type, and TypeScript drops type-only imports from the built code, so the loop never happens at run time. `import type` writes that promise into the code, so a later edit cannot break it by accident. Docs: https://www.typescriptlang.org/docs/handbook/modules/reference.html#type-only-imports-and-exports
+
+**The optional cleanup that was dropped.** `test/auth.e2e-spec.ts` could have used `test/support/login-helper.ts`. It was checked and not done:
+1. The helper gives back only the user id and the access cookie. Most auth tests also need the refresh cookie, the full `Set-Cookie` lines (to check `HttpOnly` and `Path`), and the raw reply.
+2. Only 2 of the 15 auth tests could use it. The other tests still need `findCookieLine`, `cookieValue`, `hasCookieSetting`, and `loginStudent`, so nothing would be deleted, and the file would mix two login styles.
+3. The auth tests check the login route itself, so their own detailed login code is on purpose.
+
+**Verify Step 57.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Lint | `npm run lint` | 0 errors. At that time it also showed 19 older `unbound-method` warnings in `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts`. Step 60 removed them, so it now shows 0 warnings. |
+| Unit tests | `npm test` | 165 tests pass in 17 suites (it was 163 in 16) |
+| E2E tests | `npm run test:e2e` | 44 tests pass in 4 suites (no change), and the output names `studycircle_test` |
+
+**About the 19 lint warnings:** those tests pass a method like `DemoController.prototype.closed` to a fake context, only so the guard can read the `@Public()` or `@Roles()` mark on it. The method is never called, so the "may lose `this`" risk cannot happen there. They were cleaned up on 22 November 2026 in Step 60.
+
+Commit: the three files above, with the subject `fix: use the shared login message in the current user decorator.`
 
 ## Known Limits of the Profile Routes
 
@@ -1885,9 +1935,322 @@ The register form and the profile edit form must never disagree, so their rules 
 |---|---|
 | Any logged-in user can read any active student's public profile | Ids are numbers, so profiles can be read one by one. The public view holds only safe fields, so this is accepted for now. When groups exist, the rule could become "share a group, or have a pending request to my group". |
 | Odd id spellings count as ids | After the global pipe, `007` becomes 7 and `1e3` becomes 1000. Every bad case still gives `404`, never a `500`. |
-| `current-user.decorator.ts` has a lowercase message | Its fallback `401` text is `please log in to continue`. It only fires if a route misses its guard, so no user sees it today. A one-line fix (import `UNAUTHENTICATED_MESSAGE` from the guard) is an open small item. |
-| No route lists the subjects a person can pick | The frontend will need it for the subject picker. It fits with subjects and levels (tracker item 26). |
-| `auth.e2e-spec.ts` keeps its own cookie helpers | It could use `login-helper.ts` too. This is a small optional cleanup. |
+
+---
+
+# Part 11 — Subject and Level Lists (ADDED)
+
+**What problem this solves:** a student who creates a group must pick a subject and a level, and a student who edits a profile must pick subjects of interest. Both forms need dropdowns filled with the real lists. Without these routes, the frontend would have to type the lists by hand, and a subject the admin hides would still be offered. These two routes give the frontend the live lists, so every choice a student makes is a real, active one.
+
+> **Status (21 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings were still there, and none was in a `lookups` file. Step 60 removed them later). `npm test` passes 171 tests in 19 suites (it was 165 in 17). `npm run test:e2e` passes 48 tests in 5 suites (it was 44 in 4), and the output names `studycircle_test`.
+
+**Part 11 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. Only `app.module.ts` changed, to list the new module.
+
+## Step 58 — Add the Subject and Level Routes
+
+A **lookup** is a short, fixed list of choices that the app reads from but that students never create. StudyCircle has two: subjects and levels. Only the admin adds, edits, or hides them (week 9).
+
+**The decisions:**
+
+| # | Question | Decision | Why |
+|---|---|---|---|
+| 1 | Where does the code live? | A new module, `src/lookups/` | Groups and profiles both use the lists, so they belong to neither. The seed already uses the same name (`seed-lookups.ts`). |
+| 2 | Who may read the lists? | Logged-in users only. There is no `@Public()`. | The register form does not need them. Every route is locked by default. |
+| 3 | Which rows are sent? | Only rows with `is_active = true` | A hidden subject or level must act as if it does not exist, the same rule as on profiles. |
+| 4 | Which fields are sent? | Subjects: `id`, `name`, `category`, `course_code`. Levels: `id`, `name`, `description`. | A dropdown needs nothing else. `is_active`, `sort_order`, and the dates stay on the server. |
+| 5 | In which order? | Subjects by `name` (a to z). Levels by `sort_order`, then `id`. | The dropdown looks the same every time. The admin chooses the level order (beginner, intermediate, advanced). |
+| 6 | Paging? | None. The reply is `{ "data": [...] }`, with no `meta` block. | The lists are small (12 subjects and 3 levels in the seed). |
+
+**The files:**
+
+| File | What it does |
+|---|---|
+| `src/lookups/lookups.service.ts` (NEW, + spec) | `SUBJECT_OPTION_SELECT` and `LEVEL_OPTION_SELECT` list the safe fields. `listActiveSubjects()` and `listActiveLevels()` read the active rows in the fixed order. It only reads. |
+| `src/lookups/lookups.controller.ts` (NEW, + spec) | `@Controller()` with no name, so the routes sit right after `/api/v1`. Two thin `GET` routes that call the service. |
+| `src/lookups/lookups.module.ts` (NEW) | Lists the controller and the service. It does not import `PrismaModule`, because that module is global. |
+| `src/app.module.ts` (CHANGED) | Imports `LookupsModule`. |
+| `test/lookups.e2e-spec.ts` (NEW) | 4 e2e tests (below). |
+
+**The routes** (both start with `/api/v1`, both need a login):
+
+| Route | Success reply | Errors |
+|---|---|---|
+| `GET /subjects` | `200`, `{ "data": [{ "id", "name", "category", "course_code" }, ...] }`, active subjects only, sorted by name | `401` without a login |
+| `GET /levels` | `200`, `{ "data": [{ "id", "name", "description" }, ...] }`, active levels only, in sort order | `401` without a login |
+
+An empty list gives `200` with `{ "data": [] }`, never an error, so the frontend can show an empty state.
+
+**The tests:**
+
+| File | Tests | What is proved |
+|---|---|---|
+| `src/lookups/lookups.service.spec.ts` (NEW) | 4 | Each method sends exactly the right query (active only, the right order, the safe select list) and gives back the rows unchanged. Two tests check that each select list holds only the dropdown fields, so a field added later forces a decision. |
+| `src/lookups/lookups.controller.spec.ts` (NEW) | 2 | Each route gives back the service result unchanged. |
+| `test/lookups.e2e-spec.ts` (NEW) | 4 | Both routes give `401` without a cookie. Subjects and levels come back active only, in the right order, with exactly the expected snake_case keys (the rows are created out of order on purpose, and a hidden row sits between them). With no rows, both give `{ "data": [] }`. |
+
+The unit tests use small hand-written fakes instead of `jest.fn()`. Each fake saves the arguments of every call, so a test can check the exact query.
+
+**Verify Step 58.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Lint | `npm run lint` | 0 warnings and 0 errors (since Step 60) |
+| Unit tests | `npm test` | 171 tests pass in 19 suites |
+| E2E tests | `npm run test:e2e` | 48 tests pass in 5 suites, and the output names `studycircle_test` |
+| Postman (optional) | Log in, then `GET http://localhost:3000/api/v1/subjects` and `GET http://localhost:3000/api/v1/levels` | `200`. With the seed data: 12 subjects sorted by name and 3 levels (Beginner, Intermediate, Advanced). |
+
+Commit: the 7 files above, with the subject `feat: add read routes for the active subjects and levels.`
+
+## Known Limits of the Subject and Level Lists
+
+| Limit | Plain-English explanation |
+|---|---|
+| The lists have no paging | Every active row is sent at once. That is fine for a few dozen subjects. If the admin ever adds hundreds, add paging or a search box later. |
+| No admin routes yet | Adding, editing, and hiding subjects and levels is built with the admin panel in week 9. Until then, the seed fills the lists. |
+
+---
+
+# Part 12 — Create, View, and Edit Study Groups (ADDED)
+
+**What problem this solves:** this is the heart of StudyCircle. Without it, students fall back to messy social media posts that have no clear subject, no size, and no owner. Now a student can create a proper study group with a subject, a level, an exam date, a mode, and a size. Every group has exactly one leader from the first moment, only that leader can change the details, and other students see a clean group page with the seats that are still free.
+
+> **Status (22 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 errors (the 19 old `unbound-method` warnings were still there, and none was in a `groups` file. Step 60 removed them the same day). `npm test` passes 185 tests in 21 suites (it was 171 in 19). `npm run test:e2e` passes 62 tests in 6 suites (it was 48 in 5), and the output names `studycircle_test`. `npm run start:dev` shows the three new `Mapped {/api/v1/groups...}` lines.
+
+**Part 12 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, `app.setup.ts`, `package.json`, or `package-lock.json`.** No new packages were installed. `app.module.ts` already imported `GroupsModule`.
+
+## Step 59 — Add the Group Routes
+
+**The decisions:**
+
+| # | Question | Decision | Why |
+|---|---|---|---|
+| 1 | Who may create a group? | Any active student. The creator becomes the leader. | The admin moderates groups and does not lead them. |
+| 2 | Group size | `max_size` is a whole number from **2 to 30**, counting the leader | The example range in the schema file. 2 means the leader plus one partner. |
+| 3 | Exam date | Optional. When it is sent, it must be **today or later** (by the server clock, UTC). | Search hides groups with a past exam date, so a new group with a past date would be invisible at once. |
+| 4 | Location | Required for `in_person`, optional for `online` | The rule from the schema file. |
+| 5 | What can the leader edit? | Every create field, with the same checks | One set of rules for both forms. |
+| 6 | Size below the member count | Refused with `409` | A group must never hold more people than its size. |
+| 7 | Who sees a group page? | Any logged-in user sees `active` and `closed` groups. Active members also see `archived` ones. `removed` and deleted groups give `404` to everyone. | Students must see a group before asking to join. Hidden groups give the same reply as a missing one. |
+| 8 | Close or reopen a group | Not in this step | It comes with leaving, archiving, and the admin work. |
+
+**Small defaults:** `title` up to 150 characters (required), `topic` up to 255 (optional), `description` up to 2000 (required, because the column has no size), `location` up to 255. The subject is required and the level is optional, and both must be active. Creating a group is limited to 10 calls per minute per address.
+
+**The files:**
+
+| File | What it does |
+|---|---|
+| `src/groups/groups.constants.ts` (NEW) | The text limits, the size range, and six messages. Two other messages (`This subject does not exist`, `Send at least one field to change`) are imported from `users.constants.ts`, never typed again. |
+| `src/groups/dto/create-group.dto.ts` (NEW) | The `POST` body. It does **not** list `leader_id`, `status`, `is_flagged`, or `institution_id`, so the validation pipe refuses them with `400`. The exam date must match `YYYY-MM-DD` and be a real day (`@IsISO8601({ strict: true })` refuses `2026-02-30`). |
+| `src/groups/dto/update-group.dto.ts` (NEW) | The `PATCH` body. Every field is optional. `title`, `subject_id`, `description`, `mode`, `max_size`, and `members_can_post` use `@ValidateIf`, so they may be missing but never `null`. `level_id`, `topic`, `exam_date`, and `location` may be cleared with `null`. |
+| `src/groups/groups.service.ts` (NEW) | `createGroup`, `getGroup`, and `updateGroup`, the safe select list, the reply shape, and the rule checks. |
+| `src/groups/groups.controller.ts` (NEW, + spec) | Three thin routes. `@Throttle()` lowers the create limit to 10 per minute. |
+| `src/groups/groups.module.ts` (CHANGED) | Lists the controller and the service. |
+| `src/groups/dto/groups-dto.spec.ts` (NEW) | 11 tests for both DTOs. |
+| `test/groups.e2e-spec.ts` (NEW) | 14 e2e tests. |
+
+**How create works:**
+1. The service checks the location rule and the exam date first, before any database work.
+2. Then one transaction checks that the subject and the level are active, creates the group row with `leader_id` taken from the login cookie, and creates the leader's `group_members` row (`role = leader`, `status = active`).
+3. If any step fails, nothing is saved. The rule "every group has exactly one active leader" is true from the first moment.
+
+**How edit works:** one transaction at the **Serializable** level.
+1. The group is read again. A removed or deleted group gives `404`.
+2. The leader is read from the database (`groups.leader_id`), never from the request. A stranger to an archived group gets `404`. Everyone else who is not the leader gets `403`.
+3. The location rule uses the new value of each field, or the old value when the field was not sent. So switching to `in_person` without a location, or clearing the location of an in-person group, gives `400`.
+4. The subject, the level, and the exam date are checked **only when they change**. A leader who resends an old exam date that is now in the past, or a subject the admin hid later, is not refused.
+5. A new `max_size` is compared with the active member count (the leader counts too). Smaller gives `409`.
+6. Serializable makes later join approvals and size changes act as if they ran one after the other, so the group can never go over its size. A collision gives `P2034`, which the filter answers with `409`.
+
+**The reply shape (the group page):**
+
+| Key | Meaning |
+|---|---|
+| `id`, `title`, `topic`, `description`, `mode`, `location`, `max_size`, `status`, `members_can_post`, `created_at` | The group's own fields |
+| `exam_date` | Plain day text like `"2099-12-15"`, or `null`. It is sent as text, so no time zone can move the day. |
+| `subject`, `level`, `leader` | Each as `{ id, name }`. `level` can be `null`. The leader's email is never sent. |
+| `member_count` | The active members, counting the leader. Worked out with Prisma's `_count`, never stored. |
+| `seats_left` | `max_size` minus `member_count`, never below 0 |
+| `my_role` | The viewer's own role: `leader`, `member`, or `null`. The frontend uses it to show an "Edit" or a "Join" button. |
+
+`is_flagged`, `institution_id`, and `deleted_at` are never sent.
+
+**The routes** (all start with `/api/v1`, all need a login):
+
+| Route | Success reply | Errors |
+|---|---|---|
+| `POST /groups` | `201`, the new group page with `my_role: "leader"` | `400` (bad field, extra field, past exam date, in-person without location), `401`, `404` (hidden or unknown subject or level), `429` (more than 10 per minute) |
+| `GET /groups/:id` | `200`, the group page | `401`, `404` (unknown, a word, removed, deleted, or archived for a non-member) |
+| `PATCH /groups/:id` | `200`, the new group page | `400` (bad field, empty body, past exam date, location rule), `401`, `403` (not the leader), `404`, `409` (size below the member count) |
+
+**The tests:**
+
+| File | Tests | What is proved |
+|---|---|---|
+| `src/groups/dto/groups-dto.spec.ts` (NEW) | 11 | A minimal valid body passes. Every missing required field is named. The title is trimmed, and a title of only spaces is refused. Sizes 2 and 30 pass, 1 and 31 fail. Only `online` and `in_person` pass. Only a real `YYYY-MM-DD` date passes. A subject id sent as text fails. In the edit DTO, `{}` passes the field checks, six fields refuse `null`, four fields accept `null`, and the size limits match. |
+| `src/groups/groups.controller.spec.ts` (NEW) | 3 | Each route passes the logged-in person's id (never a body value), the group id, and the body to the service. |
+| `test/groups.e2e-spec.ts` (NEW) | 14 | All three routes give `401` without a cookie. Create saves the group and exactly one leader row, with exactly the 17 safe keys. `leader_id`, `status`, and `is_flagged` in the body are refused and nothing is saved. The location and past-date rules give `400`. A hidden subject or level gives `404` and leaves no half-made rows. Another student sees the page with `my_role: null` and no email. Unknown, word, removed, and deleted ids give the same `404`. An archived group opens for its leader and gives `404` to others. The leader can edit, and the row really changes. An empty body gives `400`. A member and a stranger get `403` and nothing changes. A size below 3 active members gives `409`, and exactly 3 leaves `seats_left: 0`. The location rule holds when only the mode or only the location changes. An unchanged past exam date is accepted, and a new past date is refused. |
+
+The service has no unit test of its own for create, view, and edit. Its real work is the transaction, the member count, and the hidden-group rules, and these are proved best against the real test database. (Part 13 adds `groups.service.spec.ts`, but only for the search.)
+
+**Verify Step 59.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Lint | `npm run lint` | 0 warnings and 0 errors (since Step 60) |
+| Unit tests | `npm test` | 185 tests pass in 21 suites |
+| E2E tests | `npm run test:e2e` | 62 tests pass in 6 suites, and the output names `studycircle_test` |
+| Real server | `npm run start:dev` | The three `Mapped {/api/v1/groups...}` lines appear |
+| Postman (round 3) | Tests 30 to 39 in `postman_manual_api_tests.md` | All pass. The screenshots are saved in `screenshots/postman_manual_api_testing/` |
+
+**Postman round 3 (22 November 2026).** Run as the seed students Anika Rahman (`student01`, id 2, the leader) and Rafi Sarker (`student02`, id 3). It created group 26 in the development database. Create gave `201` with `my_role: "leader"`, the three bad creates gave `400`, Rafi saw the group with `my_role: null` and no email, an unknown id gave `404`, Rafi's edit gave `403`, Anika's edit trimmed the title and set the size to 8 (`seats_left: 7`), an empty edit gave `400`, and DBeaver showed exactly one `group_members` row for group 26, with `role = leader`. The `409` size case needs more members, so it is covered only by the e2e test until join requests exist (week 5).
+
+**DBeaver note:** DBeaver may show a `timestamptz` value with the UTC clock time and a `+06` label (for example `19:56:21 +06`). The stored value is right. The API shows the same moment as `19:56:21Z`, which is 01:56 in Dhaka.
+
+Commit: the 9 files above, with the subject `feat: add create, view, and edit routes for study groups.`
+
+## Step 60 — Remove the Old Lint Warnings
+
+**What problem this solves:** `npm run lint` showed 19 warnings on every run. Old warnings that nobody fixes teach people to ignore the lint output, so a real new warning could be missed. Now the lint output is clean, and any new warning stands out at once.
+
+**Where they came from.** The rule `typescript(unbound-method)` warns when a class method is passed around on its own (for example `DemoController.prototype.closed`), because a method that uses `this` breaks when it is called without its object. In `jwt-auth.guard.spec.ts` and `roles.guard.spec.ts`, the tests pass the methods of a small `DemoController` to a fake context, only so the guard can read the `@Public()` or `@Roles()` mark on them. The methods are never called, so the risk could not happen, but the rule cannot know that.
+
+**The fix.** Each demo method now says `this: void`, for example `closed(this: void): void {}`. That tells TypeScript and the lint rule that the method never uses `this`, so passing it around on its own is safe. Only the demo classes changed. Every test is the same. Docs: https://www.typescriptlang.org/docs/handbook/2/functions.html#declaring-this-in-a-function
+
+**Verify Step 60.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Lint | `npm run lint` | `Found 0 warnings and 0 errors.` |
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Unit tests | `npm test` | 185 tests pass in 21 suites (no change) |
+
+Commit: `src/auth/guards/jwt-auth.guard.spec.ts` and `src/auth/guards/roles.guard.spec.ts`.
+
+## Known Limits of the Group Routes
+
+| Limit | Plain-English explanation |
+|---|---|
+| No close, reopen, or archive yet | The status never changes through these routes. It comes with leaving, archiving, and the admin work. |
+| A closed or archived group can still be edited by its leader | Harmless for now. Decide later whether a closed group should be read-only. |
+| "Today" means the server's UTC date | Late at night in Bangladesh (UTC+6), UTC can still be yesterday, so the check is a little kind and never unfair. |
+| The leader's name is shown to every logged-in user | Only the name and id, the same as a public profile. The email is never sent. |
+| The admin cannot open a removed group yet | Admin views come in week 9. |
+| Members are added only by tests for now | Join requests and approvals are week 5. The e2e tests add members straight in the test database. |
+
+---
+
+# Part 13 — Group Search (ADDED)
+
+**What problem this solves:** this is the core promise of StudyCircle. A student who needs a study partner should not scroll through social media posts. Now a student can search the open groups by subject, level, exam window, mode, and place, sort them by the nearest exam or the newest, and page through the results. Groups whose exam has passed, and closed or hidden groups, never show up. When nothing matches, the reply is an empty list, so the frontend can show a "Create your own group" button instead of a dead end.
+
+> **Status (22 November 2026):** the work in this part is written, committed, and checked. `npx tsc --noEmit` prints nothing. `npm run lint` shows 0 warnings and 0 errors. `npm test` passes 214 tests in 22 suites (it was 185 in 21). `npm run test:e2e` passes 67 tests in 6 suites (it was 62 in 6), and the output names `studycircle_test`. `npm run start:dev` shows the new `Mapped {/api/v1/groups, GET}` line. Postman round 4 (tests 40 to 48) passed.
+
+**Part 13 did not change `tsconfig.json`, `prisma.config.ts`, the schema, any migration, `app.module.ts`, `app.setup.ts`, the validation pipe, `package.json`, or `package-lock.json`.** No new packages were installed. No new index was added.
+
+## Step 61 — Add the Group Search
+
+**The decisions:**
+
+| # | Question | Decision | Why |
+|---|---|---|---|
+| 1 | Route path | `GET /api/v1/groups` | Plural nouns (API shape, Section 5). It does not clash with `GET /groups/:id`, which needs an id after it. |
+| 2 | Which groups appear? | Only `active` groups that are not deleted. `closed`, `archived`, and `removed` are hidden. | The fixed values file (A4) says only `active` is shown in search. A closed group can still be opened by its id. |
+| 3 | Full groups | Shown, with `seats_left: 0` | A student can still see that the group exists. Joining is refused later, in week 5. |
+| 4 | Exam date filter | A range: `exam_from` and `exam_to`, either one or both, as `YYYY-MM-DD`. The same day in both means "exactly this day". A first day after the last day gives `400`. | One shape covers "before", "after", "between", and "on". |
+| 5 | Location filter | "Contains", ignoring upper and lower case | Places are typed freely, for example "Dhaka University" and "dhaka". |
+| 6 | No exam date in "exam soonest" | Goes last | A skill group has no deadline, so it is the least urgent. |
+| 7 | Tie-break | The group `id` (ascending for `exam_soonest`, descending for `newest`) | Two groups with the same date always come in the same order, so pages never repeat or skip a group. |
+| 8 | Hidden subjects or levels | Not checked | A group keeps showing if its subject is hidden later, the same as on the group page. |
+| 9 | Days to exam | Not sent. The frontend works it out from `exam_date` with the student's own local day. | The server's UTC day can be one day behind Bangladesh late at night. Seats left is sent, because it needs the member count. |
+
+**The files:**
+
+| File | What it does |
+|---|---|
+| `src/common/pagination/pagination-query.dto.ts` (NEW) | The shared `PaginationQueryDto`: `page` and `limit` with `@IsOptional()` only, typed `unknown`. Every list route's query DTO extends it. A bad value is fixed later by `getPaginationParams()`, never refused (API shape, Section 4). |
+| `src/groups/dto/search-groups.dto.ts` (NEW) | `SearchGroupsDto extends PaginationQueryDto`. It lists `q`, `subject_id`, `level_id`, `mode`, `location`, `exam_from`, `exam_to`, and `sort`. Any other key gives `400`. |
+| `src/groups/groups.constants.ts` (CHANGED) | One new message: `The first exam day cannot be after the last exam day`. |
+| `src/groups/groups.service.ts` (CHANGED) | `GROUP_CARD_SELECT`, the `GroupCard` reply shape, `toGroupCard()`, and `searchGroups()`. |
+| `src/groups/groups.controller.ts` (CHANGED) | `GET /groups` with `@Query() dto: SearchGroupsDto`. It passes no person id, because the search shows the same groups to every logged-in student. |
+| `src/groups/groups.service.spec.ts` (NEW) | 17 unit tests for the search. |
+| `src/groups/groups.controller.spec.ts` (CHANGED) | 1 new test (4 in total). |
+| `src/groups/dto/groups-dto.spec.ts` (CHANGED) | 11 new tests for `SearchGroupsDto` (22 in total). |
+| `test/groups.e2e-spec.ts` (CHANGED) | 5 new search tests, and the "no cookie" test now covers 4 routes (19 in total). |
+
+**How the query values are read.** Every value in the address arrives as text, and the validation pipe has no automatic number conversion. So `SearchGroupsDto` cleans each value with `@Transform()` before the checks run:
+
+| Value | Cleaning | Result |
+|---|---|---|
+| `subject_id`, `level_id` | Plain digits (up to 10) become a number. Anything else stays as it is. | `"5"` becomes `5`. A word, `5.5`, `-1`, `0`, a number above `MAX_INT_ID`, or a repeated key gives `400` with the field named. |
+| `q`, `location` | `trimToNull`: outer spaces removed, empty text becomes `null` | An empty box means "no filter". Longer than 100 (`q`) or 255 (`location`) characters gives `400`. |
+| `mode`, `exam_from`, `exam_to`, `sort` | `""` becomes "missing" | `?mode=` means "no filter". `mode` must be `online` or `in_person`. The dates must be real `YYYY-MM-DD` days. `sort` must be `newest` or `exam_soonest`. |
+
+A JSON body is different: there, `"5"` written as text is still refused (`CreateGroupDto`). Only the query cleans text into numbers.
+
+**How the search works:**
+1. `getPaginationParams()` cleans `page` and `limit`.
+2. A first exam day after the last one gives `400` before any database work.
+3. The filter always holds `deletedAt: null`, `status: active`, and "no exam date, or an exam date on or after today (UTC)". The past-exam rule lives inside the query, so no timed job is needed.
+4. Each filter that was sent is added. `q` looks in the title or the topic, and `q` and `location` use `contains` with `mode: insensitive`. A filter that is missing is `undefined`, and Prisma skips it.
+5. The sort is `[createdAt desc, id desc]` for `newest` (the default), or `[examDate asc with nulls last, id asc]` for `exam_soonest`.
+6. The total count and the page of rows are read with `Promise.all`, with the same filter.
+7. Each row becomes a card, and `paginated()` wraps the page with its `meta` block.
+
+**Why the search reads outside a transaction.** The first version read the count and the page in one transaction, so both reads would see the same moment. The e2e run then printed `DeprecationWarning: Calling client.query() when the client is already executing a query`. A trace (`$env:NODE_OPTIONS="--trace-deprecation"`) showed the cause inside Prisma itself: Prisma 7 splits one query that asks for linked data (here `subject`, `level`, `leader`, and the member `_count`) into several small SQL queries and starts them together. Inside a transaction, all of them must share one connection, so the `pg` driver warns, and `pg` 9 will refuse it. `GET /groups/:id` never had the warning, because it reads the same linked data outside a transaction. So the search reads outside a transaction too. The cost: if a group is created in the split second between the two reads, `total` can be off by one for that one reply. The next search is right again. Docs: https://www.prisma.io/docs/orm/prisma-client/queries/transactions
+
+**The reply (one group card):**
+
+| Key | Meaning |
+|---|---|
+| `id`, `title`, `topic`, `mode`, `location`, `max_size`, `created_at` | The group's own fields |
+| `exam_date` | Plain day text like `"2026-12-20"`, or `null` |
+| `subject`, `level`, `leader` | Each as `{ id, name }`. `level` can be `null`. No email. |
+| `member_count`, `seats_left` | The active members (the leader counts), and the free seats, never below 0 |
+
+A card has no `description` (it can be long, and a page can hold 50 cards), no `status` (always `active` here), no `my_role`, and no `is_flagged`. The list reply is `{ "data": [cards], "meta": { "page", "limit", "total", "total_pages" } }`. No match gives `{ "data": [], "meta": { ..., "total": 0, "total_pages": 0 } }`, which is not an error.
+
+**The route** (starts with `/api/v1`, needs a login, default limit 100 per minute):
+
+| Route | Success reply | Errors |
+|---|---|---|
+| `GET /groups` | `200`, a page of group cards with `meta` | `400` (bad filter, unknown key, first exam day after the last), `401` |
+
+**The tests:**
+
+| File | Tests | What is proved |
+|---|---|---|
+| `src/groups/dto/groups-dto.spec.ts` (CHANGED) | 11 new | An empty query passes. `"5"` becomes `5` for both id filters. A word, a decimal, a negative number, `0`, a number too big, and a repeated key are refused. Empty values mean "no filter". The search text is trimmed and limited to 100 characters. Only the two modes, real exam days, and the two sorts pass. `page` and `limit` are never refused. |
+| `src/groups/groups.service.spec.ts` (NEW) | 17 | The exact filter (active, not deleted, no past exam) for the count and the page. Both sorts with the tie-break. The default page, a later page, and a fixed bad page and limit. Each filter. A bad exam range is refused without asking the database. The cards, `seats_left` never below 0, `null` exam dates, the empty page, and the safe card fields (no description, the leader with no email, only active members counted). The fake database has no `$transaction`, so a test fails if the search ever starts one again. |
+| `src/groups/groups.controller.spec.ts` (CHANGED) | 1 new | The whole query reaches the service as one object, with no person id. |
+| `test/groups.e2e-spec.ts` (CHANGED) | 5 new | Only the active, live groups with no past exam appear (closed, archived, removed, deleted, and past-exam groups are hidden), as cards with exactly the 13 safe keys, a full group with `seats_left: 0`, and no email. Each filter narrows the list, including text that ignores case and empty values. Newest first, nearest exam first (no exam date last), the id tie-break, three pages that hold every group exactly once, and a page past the end. No match gives an empty list. A bad exam range, a word as an id, and an unknown key give `400`. |
+
+The e2e search tests make their groups straight in the test database with a small `seedGroup()` helper, because the create route refuses a past exam date and a closed status on purpose, and the sort tests need fixed creation times.
+
+**Verify Step 61.** Run from `backend/`:
+
+| Check | Command | Expected |
+|---|---|---|
+| Types | `npx tsc --noEmit` | Prints nothing |
+| Lint | `npm run lint` | `Found 0 warnings and 0 errors.` |
+| Unit tests | `npm test` | 214 tests pass in 22 suites |
+| E2E tests | `npm run test:e2e` | 67 tests pass in 6 suites, the output names `studycircle_test`, and no `DeprecationWarning` line appears |
+| Real server | `npm run start:dev` | The `Mapped {/api/v1/groups, GET}` line appears |
+| Postman (round 4) | Tests 40 to 48 in `postman_manual_api_tests.md` | All pass. The screenshots are saved in `screenshots/postman_manual_api_testing/` |
+
+**Postman round 4 (22 November 2026).** Run as the seed student Anika Rahman (`student01`). No data was changed. With the seed data and group 26, the search showed 13 groups on 2 pages, group 26 first. `subject_id=2` gave 3 Algorithms groups. `sort=exam_soonest&limit=20` gave the nearest exam first and the 3 groups with no exam date last. `q=quantum` gave an empty list. A bad exam range, `subject_id=abc`, and `status=removed` gave `400`, and a search after logout gave `401`. These numbers change as exam dates pass, because past-exam groups drop out of the search.
+
+## Known Limits of the Group Search
+
+| Limit | Plain-English explanation |
+|---|---|
+| `total` can be off by one for a moment | The count and the page are two reads outside a transaction (see "Why the search reads outside a transaction"). A group created between them can change `total` for that one reply. |
+| No search index | `contains` with `insensitive` scans the rows. That is fine for a few hundred groups. Add a PostgreSQL text index (for example `pg_trgm`) if the table grows large. |
+| `%` and `_` in the search text act as wildcards | They are passed to PostgreSQL as part of a `LIKE` pattern. The value is still sent separately from the SQL, so it is safe. At worst, the search matches more groups. |
+| No filter for "only groups with free seats" | Full groups are shown on purpose. Add a filter later if students ask for it. |
+| "Today" means the server's UTC date | Late at night in Bangladesh, a group whose exam was "yesterday" in Dhaka can still show for a few hours. |
+| No match score | Sorting by how many filters match is a Stretch item in the plan. |
 
 ---
 
@@ -2080,7 +2443,7 @@ This shows only what is **new or changed** after Part 7. Everything else stays a
 ```text
 studycircle-peer_study_group_finder/
 ├── screenshots/
-│   └── postman_manual_api_testing/   (19 screenshots: 01-register-success ... 19-rate-limit-429)
+│   └── postman_manual_api_testing/   (19 screenshots, tests 01 to 19)
 └── backend/
     ├── .env.example                  (CHANGED: JWT_ACCESS_SECRET and FRONTEND_URL added)
     ├── package.json                  (CHANGED: @nestjs/jwt, @nestjs/throttler, cookie-parser, @types/cookie-parser)
@@ -2156,17 +2519,22 @@ backend/
 
 ## Final Folder Structure (After Profile Routes) (ADDED)
 
-This shows only what is **new or changed** after Part 10. Everything else stays as in the trees above. `package.json` did not change.
+This shows only what is **new or changed** after Part 10, including Step 57. Everything else stays as in the trees above. `package.json` did not change.
 
 ```text
 studycircle-peer_study_group_finder/
 ├── screenshots/
-│   └── postman_manual_api_testing/   (CHANGED: 10 new screenshots, 20-profile-own-success ... 29-profile-own-no-login-401)
+│   └── postman_manual_api_testing/   (CHANGED: 10 new screenshots, tests 20 to 29)
 └── backend/
     ├── src/
     │   ├── auth/
-    │   │   └── dto/
-    │   │       └── register.dto.ts           (CHANGED: shared limits and helpers, empty department becomes null)
+    │   │   ├── decorators/
+    │   │   │   ├── current-user.decorator.ts       (CHANGED in Step 57: shared message, exported currentUserFactory)
+    │   │   │   └── current-user.decorator.spec.ts  (NEW in Step 57: 2 tests)
+    │   │   ├── dto/
+    │   │   │   └── register.dto.ts           (CHANGED: shared limits and helpers, empty department becomes null)
+    │   │   └── guards/
+    │   │       └── jwt-auth.guard.ts         (CHANGED in Step 57: type-only import of AuthUser)
     │   ├── common/
     │   │   ├── constants/
     │   │   │   ├── database-limits.ts        (NEW: MAX_INT_ID)
@@ -2192,6 +2560,71 @@ studycircle-peer_study_group_finder/
         ├── users.e2e-spec.ts                 (NEW: 24 tests for the profile routes)
         └── support/
             └── login-helper.ts               (NEW: registers and logs in, gives the id and the cookie)
+```
+
+## Final Folder Structure (After Subject and Level Lists) (ADDED)
+
+This shows only what is **new or changed** after Part 11. Everything else stays as in the trees above. `package.json` did not change.
+
+```text
+backend/
+├── src/
+│   ├── app.module.ts                     (CHANGED: imports LookupsModule)
+│   └── lookups/
+│       ├── lookups.module.ts             (NEW: lists the controller and the service)
+│       ├── lookups.service.ts            (NEW: safe select lists, listActiveSubjects, listActiveLevels)
+│       ├── lookups.service.spec.ts       (NEW: 4 tests)
+│       ├── lookups.controller.ts         (NEW: GET /subjects and GET /levels)
+│       └── lookups.controller.spec.ts    (NEW: 2 tests)
+└── test/
+    └── lookups.e2e-spec.ts               (NEW: 4 tests for the two list routes)
+```
+
+## Final Folder Structure (After Group Routes) (ADDED)
+
+This shows only what is **new or changed** after Part 12. Everything else stays as in the trees above. `package.json` did not change.
+
+```text
+backend/
+├── src/
+│   └── groups/
+│       ├── groups.constants.ts           (NEW: text limits, size range 2 to 30, six messages)
+│       ├── groups.module.ts              (CHANGED: lists GroupsController and GroupsService)
+│       ├── groups.service.ts             (NEW: createGroup, getGroup, updateGroup, safe select, reply shape)
+│       ├── groups.controller.ts          (NEW: POST /groups, GET /groups/:id, PATCH /groups/:id)
+│       ├── groups.controller.spec.ts     (NEW: 3 tests)
+│       └── dto/
+│           ├── create-group.dto.ts       (NEW)
+│           ├── update-group.dto.ts       (NEW)
+│           └── groups-dto.spec.ts        (NEW: 11 tests)
+└── test/
+    └── groups.e2e-spec.ts                (NEW: 14 tests for the three group routes)
+```
+
+## Final Folder Structure (After Group Search) (ADDED)
+
+This shows only what is **new or changed** after Part 13. Everything else stays as in the trees above. `package.json` did not change.
+
+```text
+studycircle-peer_study_group_finder/
+├── screenshots/
+│   └── postman_manual_api_testing/       (CHANGED: 9 new screenshots, tests 40 to 48)
+└── backend/
+    ├── src/
+    │   ├── common/
+    │   │   └── pagination/
+    │   │       └── pagination-query.dto.ts   (NEW: the shared page and limit query keys)
+    │   └── groups/
+    │       ├── groups.constants.ts           (CHANGED: the exam range message)
+    │       ├── groups.service.ts             (CHANGED: card select, card shape, searchGroups)
+    │       ├── groups.service.spec.ts        (NEW: 17 tests for the search)
+    │       ├── groups.controller.ts          (CHANGED: GET /groups)
+    │       ├── groups.controller.spec.ts     (CHANGED: 1 new test)
+    │       └── dto/
+    │           ├── search-groups.dto.ts      (NEW: the search filters and sort)
+    │           └── groups-dto.spec.ts        (CHANGED: 11 new tests)
+    └── test/
+        └── groups.e2e-spec.ts                (CHANGED: 5 new search tests, 4 routes in the no-cookie test)
 ```
 
 ## Troubleshooting
@@ -2272,6 +2705,25 @@ studycircle-peer_study_group_finder/
 | `POST /users/me/subjects` gives `400` with `subject_id must be an integer number` | The id was sent as text, like `"5"`. | Send a JSON number: `{ "subject_id": 5 }`. |
 | A public profile gives `404` for a student who exists | The account is suspended or deleted. This is on purpose, and the reply is the same as for an unknown id. | Check `status` and `deleted_at` in DBeaver. Restore the account if it was suspended for a test. |
 | An e2e test that expects `404` passes, but the route is broken | An error test can pass for the wrong reason when everything gives the same error. | Pair every error test with a success test on the same route. |
+| `npm run lint` shows a `typescript(unbound-method)` warning in a test | A test passes a class method on its own, for example `DemoController.prototype.closed`, so the lint rule worries it may lose `this`. | If the method never uses `this`, write it as `name(this: void): void {}` (Part 12, Step 60). If it does use `this`, pass an arrow function instead. Keep the lint output at 0 warnings. |
+| `GET /subjects` or `GET /levels` gives `{ "data": [] }` | No active rows exist. The development database may be empty, or every row is hidden (`is_active = false`). | Run `npm run seed` from `backend/`, or check `is_active` in DBeaver. An empty list is the correct reply, not a bug. |
+| A subject is in the database but not in `GET /subjects` | The subject is hidden (`is_active = false`). Hidden rows are left out on purpose. | Show it again in DBeaver (`UPDATE subjects SET is_active = true WHERE id = ...;`). The admin routes for this come in week 9. |
+| `POST /groups` gives `400`, `An in-person group needs a location` | `mode` is `in_person` and `location` is missing, empty, or only spaces. | Send a place, for example `"location": "Library room 2"`, or use `"mode": "online"`. |
+| `POST /groups` or `PATCH /groups/:id` gives `400`, `The exam date cannot be in the past` | The date is before today (by the server's UTC clock). | Send today or a later day, or `null` for no exam date. An old date that did not change is accepted on edit. |
+| `POST /groups` gives `400` with `exam_date must look like YYYY-MM-DD` | The date has a time part, slashes, or the day first. | Send only the day, for example `"exam_date": "2026-12-15"`. |
+| `POST /groups` gives `404`, `This subject does not exist` or `This level does not exist` | The id is unknown, or the subject or level is hidden. | Pick an id from `GET /subjects` or `GET /levels`. |
+| `PATCH /groups/:id` gives `403`, `Only the group leader can do this` | The person is a member or a stranger, not the leader. | Log in as the leader. The leader is read from `groups.leader_id`. |
+| `PATCH /groups/:id` gives `409`, `The group already has more members than this size` | The new `max_size` is smaller than the number of active members (the leader counts too). | Pick a size at least as big as `member_count` on the group page. |
+| DBeaver shows `joined_at` or `created_at` as `19:56 +06` when the real Dhaka time was 01:56 | A DBeaver display quirk with `timestamptz` columns. The stored value is right. | Compare with the API reply, which shows UTC (`...Z`). Leave the column out of report screenshots if it confuses readers. |
+| `GET /groups/:id` gives `404` for a group that is in the database | The group is removed, deleted (`deleted_at` is filled), or archived and the person is not an active member. | Check `status`, `deleted_at`, and `group_members` in DBeaver. This is on purpose. |
+| `POST /groups` gives `429` | More than 10 groups in one minute from one address. | Wait 60 seconds. The reply has a `Retry-After` header. |
+| `GET /groups` gives `400`, `The first exam day cannot be after the last exam day` | `exam_from` is later than `exam_to`. | Swap the two days, or send only one of them. |
+| `GET /groups` gives `400` with `property ... should not exist` | The address has a key the search does not list, for example `status`. | Use only `q`, `subject_id`, `level_id`, `mode`, `location`, `exam_from`, `exam_to`, `sort`, `page`, and `limit`. |
+| `GET /groups` gives `400` for `subject_id` or `level_id` | The value is not a whole number from 1 to `MAX_INT_ID`, or the key was sent twice. | Send one plain number, for example `?subject_id=2`. Leave the key out for "any". |
+| A group is in the database but not in `GET /groups` | It is not `active`, it is deleted, or its exam date has passed (by the server's UTC day). | Check `status`, `deleted_at`, and `exam_date` in DBeaver. This is on purpose. The group page (`GET /groups/:id`) still opens a closed group. |
+| `GET /groups` gives `200` with `{ "data": [] }` | Nothing matches the filters, or the page is past the last page. | This is not an error. Check `meta.total`, and loosen the filters. |
+| `DeprecationWarning: Calling client.query() when the client is already executing a query` in a test run | A query that asks for linked fields (like `subject` or `_count`) runs inside a transaction. Prisma 7 starts several small queries at once on the one transaction connection. | Read with linked fields outside a transaction, as the search does (Part 13, Step 61). To find the line, run `$env:NODE_OPTIONS="--trace-deprecation"` before the tests, then `$env:NODE_OPTIONS=""` after. |
+| Postman says `Invalid protocol: get http:` | The word `GET` was pasted into the address box. | Keep `GET` in the dropdown and only the address in the box. |
 
 ## Quick Cheat Sheet
 
@@ -2283,6 +2735,7 @@ studycircle-peer_study_group_finder/
 | Install packages from the lock file (fresh clone) | `npm ci` |
 | Start the development server | `npm run start:dev` |
 | Build the backend | `npm run build` |
+| Check the code style (oxlint, changes no files, expect 0 warnings and 0 errors) | `npm run lint` |
 | Run unit tests | `npm test` |
 | Run end-to-end tests (builds `studycircle_test` from the migrations first, then runs) | `npm run test:e2e` |
 | Run only the auth e2e tests | `npm run test:e2e -- auth.e2e-spec` |
@@ -2318,6 +2771,18 @@ studycircle-peer_study_group_finder/
 | Check the two seed students after a Postman round (DBeaver, `studycircle`) | The query in `postman_manual_api_tests.md`, "Check the two seed students after round 2" |
 | See the own profile (Postman, logged in) | `GET http://localhost:3000/api/v1/users/me/profile` |
 | See another student's public profile (Postman, logged in) | `GET http://localhost:3000/api/v1/users/3/profile` |
+| Run only the subject and level e2e tests | `npm run test:e2e -- lookups.e2e-spec` |
+| See the active subjects (Postman, logged in) | `GET http://localhost:3000/api/v1/subjects` |
+| See the active levels (Postman, logged in) | `GET http://localhost:3000/api/v1/levels` |
+| Run only the group e2e tests | `npm run test:e2e -- groups.e2e-spec` |
+| Create a group (Postman, logged in) | `POST http://localhost:3000/api/v1/groups` with `title`, `subject_id`, `description`, `mode`, `max_size` |
+| See one group (Postman, logged in) | `GET http://localhost:3000/api/v1/groups/1` |
+| Edit a group as its leader (Postman, logged in) | `PATCH http://localhost:3000/api/v1/groups/1` with only the fields that change |
+| Run only the group service unit tests | `npm run test -- groups.service` |
+| Run only the group DTO unit tests | `npm run test -- groups-dto` |
+| Search groups (Postman, logged in) | `GET http://localhost:3000/api/v1/groups` |
+| Search one subject, nearest exam first (Postman, logged in) | `GET http://localhost:3000/api/v1/groups?subject_id=2&sort=exam_soonest` |
+| See the second page of 5 (Postman, logged in) | `GET http://localhost:3000/api/v1/groups?page=2&limit=5` |
 
 ## Rules to Never Forget
 
@@ -2387,6 +2852,9 @@ studycircle-peer_study_group_finder/
 - The Prisma skill folders (`.agents`, `.claude`, `.windsurf`) and `skills-lock.json` are not committed. `backend/.gitignore` blocks them.
 - Every top-level error `message` starts with a capital letter and is a plain sentence that is safe to show on screen. Field messages inside `errors` start with the snake_case field name.
 - Write each error message once, as a constant, and import it where it is needed. Never type the same message text in two code files. (The e2e tests are the one exception: they write messages out in full on purpose.)
+- Every `401` for "not logged in" uses `UNAUTHENTICATED_MESSAGE` from `jwt-auth.guard.ts`, including the fallback in `@CurrentUser()`.
+- When two files import from each other and one side needs only a type, use `import type` on that side, so the two files never load each other in a loop.
+- Export the inner function of a custom decorator (like `currentUserFactory`), so a unit test can call it directly.
 - Every `429` reply gets its sentence from the exception filter. Do not set the message in the throttler settings, so the wording stays in one place.
 - Every route that changes a person's own data uses `me` in the address and takes the user id from `@CurrentUser()`. Never accept a user id in the body or the address for "my own" changes.
 - A public profile never shows `email`, `role`, `status`, or `password_hash`. A suspended or deleted person is hidden from every public view with the same `404` as an unknown id.
@@ -2397,3 +2865,17 @@ studycircle-peer_study_group_finder/
 - Update DTOs list only the fields a person may change. Never list `email`, `role`, `status`, `password`, or `id` in a profile DTO.
 - Copy allowed fields into a Prisma `data` object one by one. Never spread a DTO into a query.
 - Every error test needs a matching success test, so a test cannot pass for the wrong reason.
+- Lists of choices (subjects, levels) send only active rows and only the fields a dropdown needs. A hidden row must act as if it does not exist everywhere.
+- A group's leader always comes from the login cookie on create, and from `groups.leader_id` in the database on edit. Never accept a leader id in the body.
+- The group row and the leader's `group_members` row are created in one transaction. Never create one without the other.
+- Every change to a group's size runs in a Serializable transaction that counts the active members first.
+- A removed group, a deleted group, and an archived group for a non-member all give the same `404` as an unknown id.
+- Dates with no time (like `exam_date`) are received and sent as `YYYY-MM-DD` text, so no time zone can move the day.
+- Keep `npm run lint` at 0 warnings and 0 errors. Fix a new warning in the same commit that causes it.
+- Every list route's query DTO extends `PaginationQueryDto`. Never add a number rule to `page` or `limit`. The paging helper fixes a bad value.
+- Values in the address are always text. A number filter needs a `@Transform()` that turns plain digits into a number before `@IsInt()` runs. Never turn on automatic number conversion in the global validation pipe, because that would also let `"5"` through in JSON bodies.
+- An empty filter value (`?mode=`) means "no filter", never an error.
+- The search shows only `active`, not deleted groups whose exam has not passed. The past-exam rule lives inside the query, never in a timed job.
+- Every sort ends with the `id` as a tie-break, so pages never repeat or skip a row.
+- A search with no match gives `200` with an empty list. Never answer it with `404`.
+- Never read linked fields (relations or `_count`) inside a transaction with Prisma 7 and `@prisma/adapter-pg`. Read them outside, like `getGroup()` and `searchGroups()`.
