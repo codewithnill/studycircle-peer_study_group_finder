@@ -18,6 +18,8 @@ import { SessionsModule } from './sessions/sessions.module';
 import { UsersModule } from './users/users.module';
 // imports the lookups module, which gives the lists of subjects and levels for dropdowns.
 import { LookupsModule } from './lookups/lookups.module';
+// imports the join requests module, which lets students ask to join a group and leaders answer.
+import { JoinRequestsModule } from './join-requests/join-requests.module';
 
 // @Module() is the decorator that tells nestjs this is a module.
 @Module({
@@ -28,7 +30,7 @@ import { LookupsModule } from './lookups/lookups.module';
     ConfigModule.forRoot({ isGlobal: true }),
     // the default rate limit for every route: at most 100 requests per minute from one address.
     // "ttl" is the length of the time window in milliseconds. "limit" is how many requests are allowed inside it.
-    // routes with their own @Throttle() mark (register, login, refresh) use their own numbers instead.
+    // routes with their own @Throttle() mark (register, login, refresh, group create, join request send) use their own numbers instead.
     // this module is global, so the throttler guard can be used in other modules without importing it again.
     // safety: the counts are kept in the server's memory. they reset when the server restarts and are not shared between servers.
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 100 }]),
@@ -43,6 +45,8 @@ import { LookupsModule } from './lookups/lookups.module';
     AdminModule,
     // the shared lists of subjects and levels. groups and profiles both use them.
     LookupsModule,
+    // join requests: send, cancel, list, approve, and reject. it brings in the notifications module itself.
+    JoinRequestsModule,
   ],
   // controllers handle incoming http requests.
   controllers: [AppController],
