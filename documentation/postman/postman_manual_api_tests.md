@@ -1,7 +1,7 @@
 # StudyCircle — Postman Manual API Tests
 
-**Tests done up to:** test 39, on 22 November 2026.
-**Next test number:** 40.
+**Tests done up to:** test 48, on 22 November 2026.
+**Next test number:** 49.
 
 ## 1. What This File Is
 
@@ -77,6 +77,7 @@ All passwords above except the admin one are throwaway demo values. They are saf
 | Own profile (`200`) | `data` with `id`, `name`, `department`, `academic_year`, `bio`, `subjects` (a list of `id` and `name`), the person's own `email`, and `role`. Checked on 20 November 2026. |
 | Public profile (`200`) | `data` with `id`, `name`, `department`, `academic_year`, `bio`, `subjects`. No email, no role. Checked on 20 November 2026. |
 | Group page (`200` or `201`) | `data` with `id`, `title`, `topic`, `description`, `exam_date` (`YYYY-MM-DD` or null), `mode`, `location`, `max_size`, `member_count`, `seats_left`, `status`, `members_can_post`, `created_at`, `subject` and `leader` (each `id` and `name`), `level` (`id` and `name`, or null), and `my_role` (`leader`, `member`, or null). No emails. Checked on 22 November 2026. |
+| Group search (`200`) | `data` is a list of group cards, and `meta` has `page`, `limit`, `total`, `total_pages`. Each card has `id`, `title`, `topic`, `exam_date` (`YYYY-MM-DD` or null), `mode`, `location`, `max_size`, `member_count`, `seats_left`, `created_at`, `subject` and `leader` (each `id` and `name`), and `level` (`id` and `name`, or null). No `description`, no `status`, no `my_role`, no emails. Checked on 22 November 2026. |
 | Any error | `status_code`, `message`, `errors` (a list, empty unless it is a form error) |
 
 ## 6. Test Log
@@ -122,6 +123,15 @@ All passwords above except the admin one are throwaway demo values. They are saf
 | 37 | A student who is not the leader edits the group | `403`, nothing changed | 22 November 2026 |
 | 38 | Edit with an empty body | `400` | 22 November 2026 |
 | 39 | DBeaver: the group and its one leader row | 1 row, `role = leader` | 22 November 2026 |
+| 40 | Search groups with no filters | `200`, 10 cards, newest first, `total` 13 | 22 November 2026 |
+| 41 | Search groups, page 2 | `200`, the last 3 cards, `page` 2 | 22 November 2026 |
+| 42 | Search groups by subject | `200`, 3 Algorithms cards | 22 November 2026 |
+| 43 | Search groups by nearest exam first | `200`, nearest exam first, no exam date last | 22 November 2026 |
+| 44 | Search with no matching group | `200`, empty `data`, `total` 0 | 22 November 2026 |
+| 45 | Search with an exam range that ends before it starts | `400` | 22 November 2026 |
+| 46 | Search with a bad subject id | `400`, the field is named | 22 November 2026 |
+| 47 | Search with an unknown query key | `400`, the key is named | 22 November 2026 |
+| 48 | Search without a login | `401` | 22 November 2026 |
 
 **Rounds:**
 
@@ -130,10 +140,13 @@ All passwords above except the admin one are throwaway demo values. They are saf
 | 1 | 17 November 2026 | 01 to 19 | Backend authentication (register, login, me, refresh, logout, suspension, rate limit). All passed. The images of that day show the messages of that time: lowercase auth messages and the `429` text `ThrottlerException: Too Many Requests`. Both were changed on 19 November 2026 (Section 7 shows the new text). |
 | 2 | 20 November 2026 | 20 to 29 | Profile routes (own profile, edit, refused fields, public profile, suspended profile, subjects of interest, no login). All passed. Demo data was put back afterwards and checked in DBeaver. |
 | 3 | 22 November 2026 | 30 to 39 | Group routes (create, the location and past-date rules, a refused extra field, view by another student, unknown id, leader edit, edit by a non-leader, empty edit, the leader row in DBeaver). All passed. The tests were run in the order 30 to 35, then 37, then 36, 38, and 39, to save one login. Group 26 stays in the development database as demo data. The `409` size case needs more members, so it is covered only by the e2e tests until join requests exist (week 5). |
+| 4 | 22 November 2026 | 40 to 48 | Group search (no filters, page 2, subject filter, nearest exam sort, no match, bad exam range, bad subject id, unknown key, no login). All passed. Nothing was changed in the database. Test 48 ends with a logout. |
 
 ## 7. Test Details
 
-The tests of round 1 depend on each other. Run them in order the first time. After that, each test says what it needs. The tests of round 2 (20 to 29) also run in order, because tests 27 and 28 use the subject added in test 26. The tests of round 3 (30 to 39) use the group made in test 30. Run 34, 35, and 37 while logged in as the second seed student, then log back in as `student01` for 36, 38, and 39.
+The tests of round 1 depend on each other. Run them in order the first time. After that, each test says what it needs. The tests of round 2 (20 to 29) also run in order, because tests 27 and 28 use the subject added in test 26. The tests of round 3 (30 to 39) use the group made in test 30. Run 34, 35, and 37 while logged in as the second seed student, then log back in as `student01` for 36, 38, and 39. The tests of round 4 (40 to 48) only read data. Run 40 to 47 logged in as `student01`. Test 48 logs out first.
+
+**Search results change with time.** Search hides a group once its exam date has passed. The expected lists in tests 40 to 43 were right on 22 November 2026. After 24 November, group 2 drops out, after 26 November group 8, and so on. Check the rules (order, no past exam, the `meta` numbers that fit the list), not the exact ids.
 
 **Message wording.** On 19 November 2026 every auth message got a capital first letter, and the `429` message became a plain sentence. The expected replies below show the new text. Images 01 to 19 were saved on 17 November 2026, so they show the old lowercase text. They still prove the same behaviour.
 
@@ -1286,6 +1299,226 @@ WHERE g.id = 26;
 **Note:** DBeaver may show `joined_at` as `19:56:21 +06`. That is a display quirk. The stored time is right: 19:56 UTC, which is 01:56 in Dhaka, the same moment as `created_at` in test 30.
 
 **Cleanup:** none. Group 26 stays as demo data. `npm run seed` removes it, because the seed wipes the development database.
+
+---
+
+### Test 40 — Search groups with no filters
+
+**What it is for:** shows that a logged-in student gets the first page of open groups as small cards, with a `meta` block for paging. A card has no description, no status, and no email.
+
+**Before:** log in as `student01` with the body of test 14, in the same Postman window. Expect `200` with the name "Anika Rahman".
+
+```text
+GET http://localhost:3000/api/v1/groups
+```
+
+Body: none.
+
+**Expected:** status `200 OK`. On 22 November 2026:
+1. `data` has 10 cards, newest first by `created_at`. The first card is group 26, "Trees and graphs exam prep", with `seats_left` 7.
+2. No card has `description`, `status`, `is_flagged`, or any `email`.
+3. No card has an `exam_date` before today.
+4. Full groups still show, with `seats_left` 0 (groups 2 and 8).
+5. `meta` is `{ "page": 1, "limit": 10, "total": 13, "total_pages": 2 }`.
+
+---
+
+### Test 41 — Search groups, page 2
+
+**What it is for:** shows that paging works. Page 2 holds the rest of the groups, and `meta` says which page it is.
+
+**Before:** logged in as `student01` (test 40).
+
+```text
+GET http://localhost:3000/api/v1/groups?page=2
+```
+
+Body: none.
+
+**Expected:** status `200 OK`. On 22 November 2026, `data` had exactly 3 cards: groups 12, 4, and 15. None of them is on page 1, and all are older than the last card of page 1. `meta` is `{ "page": 2, "limit": 10, "total": 13, "total_pages": 2 }`.
+
+---
+
+### Test 42 — Search groups by subject
+
+**What it is for:** shows that the subject filter works, and that `subject_id=2`, which arrives as text in the address, is turned into a number and accepted.
+
+**Before:** logged in as `student01`.
+
+```text
+GET http://localhost:3000/api/v1/groups?subject_id=2
+```
+
+Body: none.
+
+**Expected:** status `200 OK`. On 22 November 2026, `data` had exactly 3 cards, newest first: groups 26, 14, and 2. Every card has `"subject": { "id": 2, "name": "Algorithms" }`. `meta` is `{ "page": 1, "limit": 10, "total": 3, "total_pages": 1 }`.
+
+**Tip:** the address box holds only the address. If `GET` is pasted into it too, Postman shows "Invalid protocol" and sends nothing.
+
+---
+
+### Test 43 — Search groups by nearest exam first
+
+**What it is for:** shows the "exam soonest" sort. The nearest exam comes first. Groups with no exam date go to the end. `limit=20` puts every group on one page, so the end of the list can be checked.
+
+**Before:** logged in as `student01`.
+
+```text
+GET http://localhost:3000/api/v1/groups?sort=exam_soonest&limit=20
+```
+
+Body: none.
+
+**Expected:** status `200 OK`. On 22 November 2026 the order was:
+
+| # | Group id | `exam_date` |
+|---|---|---|
+| 1 | 2 | 2026-11-24 |
+| 2 | 8 | 2026-11-26 |
+| 3 | 14 | 2026-11-29 |
+| 4 | 3 | 2026-12-01 |
+| 5 | 12 | 2026-12-03 |
+| 6 | 6 | 2026-12-07 |
+| 7 | 18 | 2026-12-10 |
+| 8 | 9 | 2026-12-13 |
+| 9 | 26 | 2026-12-20 |
+| 10 | 15 | 2026-12-22 |
+| 11 | 4 | null |
+| 12 | 10 | null |
+| 13 | 16 | null |
+
+Groups with the same exam date (or no date) come with the smallest id first. `meta` is `{ "page": 1, "limit": 20, "total": 13, "total_pages": 1 }`.
+
+---
+
+### Test 44 — Search with no matching group
+
+**What it is for:** shows that a search that finds nothing gives a normal `200` with an empty list, not an error. The frontend shows the "Create your own group" button in this case.
+
+**Before:** logged in as `student01`.
+
+```text
+GET http://localhost:3000/api/v1/groups?q=quantum
+```
+
+Body: none. (No seed group has "quantum" in its title or topic.)
+
+**Expected:** status `200 OK`.
+
+```json
+{
+  "data": [],
+  "meta": { "page": 1, "limit": 10, "total": 0, "total_pages": 0 }
+}
+```
+
+No `status_code`, `message`, or `errors` keys.
+
+---
+
+### Test 45 — Search with an exam range that ends before it starts
+
+**What it is for:** shows that an exam range that could never match (the first day after the last day) is refused with a plain sentence.
+
+**Before:** logged in as `student01`.
+
+```text
+GET http://localhost:3000/api/v1/groups?exam_from=2026-12-20&exam_to=2026-12-01
+```
+
+Body: none.
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "The first exam day cannot be after the last exam day",
+  "errors": []
+}
+```
+
+---
+
+### Test 46 — Search with a bad subject id
+
+**What it is for:** shows that a filter value that can never be an id is refused, and that the error names the field in snake_case.
+
+**Before:** logged in as `student01`.
+
+```text
+GET http://localhost:3000/api/v1/groups?subject_id=abc
+```
+
+Body: none.
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "Validation failed",
+  "errors": [
+    { "field": "subject_id", "message": "subject_id must not be greater than 2147483647" },
+    { "field": "subject_id", "message": "subject_id must not be less than 1" },
+    { "field": "subject_id", "message": "subject_id must be an integer number" }
+  ]
+}
+```
+
+The three messages may come in a different order. Every `field` is `subject_id`, never `subjectId`.
+
+---
+
+### Test 47 — Search with an unknown query key
+
+**What it is for:** shows that the search refuses any key it does not list, so nobody can add a key like `status` to see closed or removed groups.
+
+**Before:** logged in as `student01`.
+
+```text
+GET http://localhost:3000/api/v1/groups?status=removed
+```
+
+Body: none.
+
+**Expected:** status `400 Bad Request`.
+
+```json
+{
+  "status_code": 400,
+  "message": "Validation failed",
+  "errors": [
+    { "field": "status", "message": "property status should not exist" }
+  ]
+}
+```
+
+---
+
+### Test 48 — Search without a login
+
+**What it is for:** shows that the search is locked. Only logged-in students can see the groups.
+
+**Before:** log out: `POST http://localhost:3000/api/v1/auth/logout`, body none. Expect `200` with `{ "data": null }`.
+
+```text
+GET http://localhost:3000/api/v1/groups
+```
+
+Body: none.
+
+**Expected:** status `401 Unauthorized`.
+
+```json
+{
+  "status_code": 401,
+  "message": "Please log in to continue",
+  "errors": []
+}
+```
+
+No `data` key.
 
 ---
 
