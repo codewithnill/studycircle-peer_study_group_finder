@@ -361,9 +361,13 @@ export class GroupsService {
         ? [{ examDate: { sort: Prisma.SortOrder.asc, nulls: Prisma.NullsOrder.last } }, { id: Prisma.SortOrder.asc }]
         : [{ createdAt: Prisma.SortOrder.desc }, { id: Prisma.SortOrder.desc }];
 
-    // two reads in one transaction: the total count and the page of rows.
-    // running them together means both see the same data, so the total and the page always agree.
-    const [total, rows] = await this.prisma.$transaction([
+    // two reads with the same filter: the total count and the page of rows. they run at the same time.
+    // note: they run outside a transaction on purpose. prisma 7 splits a query with linked fields (subject, level,
+    // leader, the member count) into several small queries. inside a transaction they would all share one connection,
+    // and the pg driver warns about that. outside a transaction they can use several connections.
+    // the cost: if a group is created in the split second between the two reads, "total" can be off by one
+    // for that one reply. the next search is right again, so this is harmless for a search page.
+    const [total, rows] = await Promise.all([
       this.prisma.group.count({ where }),
       this.prisma.group.findMany({
         where,
