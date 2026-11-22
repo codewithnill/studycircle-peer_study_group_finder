@@ -4,12 +4,15 @@ import type { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 // imports the server type that supertest expects.
 import type { App } from 'supertest/types';
-// imports the prisma client type and the fixed words the test needs.
+// imports the prisma client type, the type tools, and the fixed words the test needs.
+// "Prisma" gives the type of the data a new group row may hold, so the search helper below is checked by typescript.
 // safety: the fixed words come from the generated client and are never typed by hand.
 import {
   GroupMemberRole,
   GroupMemberStatus,
   GroupStatus,
+  Mode,
+  Prisma,
   PrismaClient,
 } from '../src/generated/prisma/client';
 // imports the helpers that build the test database client and empty every table.
@@ -30,6 +33,7 @@ const LOCATION_REQUIRED_MESSAGE = 'An in-person group needs a location';
 const EXAM_DATE_IN_PAST_MESSAGE = 'The exam date cannot be in the past';
 const SIZE_BELOW_MEMBERS_MESSAGE = 'The group already has more members than this size';
 const NOTHING_TO_UPDATE_MESSAGE = 'Send at least one field to change';
+const EXAM_RANGE_INVALID_MESSAGE = 'The first exam day cannot be after the last exam day';
 
 // the test accounts.
 // safety: these are made-up passwords for the empty test database only.
@@ -58,12 +62,35 @@ const GROUP_KEYS = [
   'topic',
 ];
 
+// the exact keys of a group card in the search, sorted a to z.
+// safety: no description, status, my_role, is_flagged, or email.
+const CARD_KEYS = [
+  'created_at',
+  'exam_date',
+  'id',
+  'leader',
+  'level',
+  'location',
+  'max_size',
+  'member_count',
+  'mode',
+  'seats_left',
+  'subject',
+  'title',
+  'topic',
+];
+
 // builds the three-key error body, so each check reads in one short line.
 function errorBody(statusCode: number, message: string) {
   return { status_code: statusCode, message, errors: [] };
 }
 
-// these tests check the three group routes from the outside, the same way the frontend will call them.
+// reads the group ids from a search reply, in the order the reply gives them.
+function idsOf(body: { data: { id: number }[] }): number[] {
+  return body.data.map((card) => card.id);
+}
+
+// these tests check the four group routes from the outside, the same way the frontend will call them.
 // describe, it, expect, beforeAll, afterAll, beforeEach and afterEach are jest tools. they are available without an import.
 describe('group routes (e2e)', () => {
   // the test database client. it sets up states (a hidden subject, an archived group) and reads rows back.
@@ -105,6 +132,44 @@ describe('group routes (e2e)', () => {
     });
   }
 
+  // makes a group and its leader row straight in the test database, and gives back the new group id.
+  // the search tests need states the create route refuses on purpose (a past exam, a closed or removed group)
+  // and fixed creation times for the sort checks, so they cannot use the real route.
+  // "data" changes any field, for example { status: GroupStatus.closed }.
+  async function seedGroup(
+    leaderId: number,
+    data: Partial<Prisma.GroupUncheckedCreateInput> = {},
+  ): Promise<number> {
+    const group = await prisma.group.create({
+      data: {
+        title: 'Seed group',
+        subjectId,
+        levelId,
+        leaderId,
+        description: 'Made by the test.',
+        mode: Mode.online,
+        maxSize: 5,
+        ...data,
+      },
+      select: { id: true },
+    });
+    // every group has its leader as an active member, the same as the create route does.
+    await prisma.groupMember.create({
+      data: {
+        groupId: group.id,
+        userId: leaderId,
+        role: GroupMemberRole.leader,
+        status: GroupMemberStatus.active,
+      },
+    });
+    return group.id;
+  }
+
+  // sends one search with the given address ending (for example "?subject_id=2") as a logged-in person.
+  function search(account: LoggedInAccount, query = '') {
+    return request(app.getHttpServer()).get(`/api/v1/groups${query}`).set('Cookie', account.cookie);
+  }
+
   // runs once before all tests. builds the test database client. the guard runs inside the helper.
   beforeAll(() => {
     prisma = createTestPrisma();
@@ -128,11 +193,12 @@ describe('group routes (e2e)', () => {
     await app.close();
   });
 
-  // safety: all three routes need a login.
-  it('gives 401 on all three routes without a cookie', async () => {
+  // safety: all four routes need a login.
+  it('gives 401 on all four routes without a cookie', async () => {
     const server = app.getHttpServer();
     const replies = [
       await request(server).post('/api/v1/groups').send(validBody()),
+      await request(server).get('/api/v1/groups'),
       await request(server).get('/api/v1/groups/1'),
       await request(server).patch('/api/v1/groups/1').send({ title: 'New' }),
     ];
@@ -239,6 +305,159 @@ describe('group routes (e2e)', () => {
       // the transaction rolled back, so no half-made group or member row is left behind.
       expect(await prisma.group.count()).toBe(0);
       expect(await prisma.groupMember.count()).toBe(0);
+    });
+  });
+
+  describe('GET /api/v1/groups (search)', () => {
+    // safety: only active, live groups whose exam has not passed may appear.
+    // closed, archived, removed, deleted, and past-exam groups stay hidden. a full group still shows.
+    it('shows only active groups with no past exam, as safe cards with a meta block', async () => {
+      const leader = await registerAndLogin(app, LEADER);
+      const other = await registerAndLogin(app, OTHER);
+
+      // three groups that must appear.
+      const future = await seedGroup(leader.id, { examDate: new Date('2099-06-01T00:00:00.000Z') });
+      const noExam = await seedGroup(leader.id);
+      const full = await seedGroup(leader.id, { maxSize: 2 });
+      await addMember(full, other.id);
+
+      // five groups that must stay hidden.
+      await seedGroup(leader.id, { status: GroupStatus.closed });
+      await seedGroup(leader.id, { status: GroupStatus.archived });
+      await seedGroup(leader.id, { status: GroupStatus.removed });
+      await seedGroup(leader.id, { deletedAt: new Date() });
+      await seedGroup(leader.id, { examDate: new Date('2000-01-01T00:00:00.000Z') });
+
+      const res = await search(other).expect(200);
+
+      // exactly the three visible groups.
+      expect(idsOf(res.body).sort((a, b) => a - b)).toEqual([future, noExam, full].sort((a, b) => a - b));
+      expect(res.body.meta).toEqual({ page: 1, limit: 10, total: 3, total_pages: 1 });
+
+      // every card has exactly the safe keys.
+      for (const card of res.body.data as Record<string, unknown>[]) {
+        expect(Object.keys(card).sort()).toEqual(CARD_KEYS);
+      }
+
+      // the exam date is plain day text, and a full group shows 0 seats.
+      const cards = res.body.data as { id: number; exam_date: string | null; seats_left: number }[];
+      expect(cards.find((card) => card.id === future)?.exam_date).toBe('2099-06-01');
+      expect(cards.find((card) => card.id === full)).toMatchObject({ member_count: 2, seats_left: 0 });
+
+      // safety: the leader's email is never in the reply. a true/false check keeps the output short.
+      expect(JSON.stringify(res.body).includes(LEADER.email)).toBe(false);
+    });
+
+    // every filter narrows the list. text filters ignore upper and lower case, and an empty value means "no filter".
+    it('narrows the list with each filter', async () => {
+      const leader = await registerAndLogin(app, LEADER);
+      const otherSubject = (await prisma.subject.create({ data: { name: 'Calculus' } })).id;
+      const otherLevel = (await prisma.level.create({ data: { name: 'Advanced', description: 'Deep' } })).id;
+
+      const trees = await seedGroup(leader.id, {
+        title: 'Trees and Graphs',
+        topic: 'graph search',
+        location: 'Dhaka University',
+        examDate: new Date('2099-03-10T00:00:00.000Z'),
+      });
+      const limits = await seedGroup(leader.id, {
+        title: 'Limits',
+        topic: 'derivatives',
+        subjectId: otherSubject,
+        levelId: otherLevel,
+        mode: Mode.in_person,
+        location: 'Chittagong campus',
+        examDate: new Date('2099-09-20T00:00:00.000Z'),
+      });
+
+      // each address ending and the groups it must find.
+      const cases: [string, number[]][] = [
+        [`?subject_id=${otherSubject}`, [limits]],
+        [`?level_id=${levelId}`, [trees]],
+        ['?mode=in_person', [limits]],
+        ['?location=DHAKA', [trees]],
+        ['?q=GRAPH', [trees]],
+        ['?q=derivatives', [limits]],
+        ['?exam_from=2099-01-01&exam_to=2099-06-30', [trees]],
+        ['?exam_from=2099-09-20&exam_to=2099-09-20', [limits]],
+        ['?subject_id=&mode=&q=', [trees, limits]],
+      ];
+
+      for (const [query, expected] of cases) {
+        const res = await search(leader, query).expect(200);
+        expect(idsOf(res.body).sort((a, b) => a - b)).toEqual(expected.sort((a, b) => a - b));
+      }
+    });
+
+    // newest first by default, nearest exam first on request, the id as the tie-break,
+    // and pages that never repeat or skip a group.
+    it('sorts and pages the results without repeats or gaps', async () => {
+      const leader = await registerAndLogin(app, LEADER);
+
+      // five groups with fixed creation times. "tieOld" and "tieNew" share the same time, so the id must break the tie.
+      const oldest = await seedGroup(leader.id, {
+        createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        examDate: new Date('2099-05-01T00:00:00.000Z'),
+      });
+      const middle = await seedGroup(leader.id, { createdAt: new Date('2026-02-01T00:00:00.000Z') });
+      const newest = await seedGroup(leader.id, {
+        createdAt: new Date('2026-03-01T00:00:00.000Z'),
+        examDate: new Date('2099-01-10T00:00:00.000Z'),
+      });
+      const tieOld = await seedGroup(leader.id, { createdAt: new Date('2025-12-01T00:00:00.000Z') });
+      const tieNew = await seedGroup(leader.id, { createdAt: new Date('2025-12-01T00:00:00.000Z') });
+
+      // newest first. the two groups with the same time come with the bigger id first.
+      const byNewest = await search(leader).expect(200);
+      expect(idsOf(byNewest.body)).toEqual([newest, middle, oldest, tieNew, tieOld]);
+
+      // nearest exam first. groups with no exam date come last, with the smaller id first.
+      const byExam = await search(leader, '?sort=exam_soonest').expect(200);
+      expect(idsOf(byExam.body)).toEqual([newest, oldest, middle, tieOld, tieNew]);
+
+      // three pages of 2. put together, they hold every group exactly once, in the same order as one big page.
+      const page1 = await search(leader, '?page=1&limit=2').expect(200);
+      const page2 = await search(leader, '?page=2&limit=2').expect(200);
+      const page3 = await search(leader, '?page=3&limit=2').expect(200);
+      expect([...idsOf(page1.body), ...idsOf(page2.body), ...idsOf(page3.body)]).toEqual(idsOf(byNewest.body));
+      expect(page2.body.meta).toEqual({ page: 2, limit: 2, total: 5, total_pages: 3 });
+
+      // a page past the end is an empty list with the same meta numbers, not an error.
+      const pastEnd = await search(leader, '?page=4&limit=2').expect(200);
+      expect(pastEnd.body).toEqual({ data: [], meta: { page: 4, limit: 2, total: 5, total_pages: 3 } });
+    });
+
+    // an empty result is a normal answer. the frontend shows a "Create your own group" button for it.
+    it('gives an empty list, not an error, when nothing matches', async () => {
+      const leader = await registerAndLogin(app, LEADER);
+      await seedGroup(leader.id, { title: 'Trees and Graphs' });
+
+      const res = await search(leader, '?q=quantum').expect(200);
+      expect(res.body).toEqual({ data: [], meta: { page: 1, limit: 10, total: 0, total_pages: 0 } });
+    });
+
+    // bad input is refused with 400 and a clear reply, before anything reaches the database.
+    it('refuses a bad exam range, a bad id and an unknown key', async () => {
+      const leader = await registerAndLogin(app, LEADER);
+
+      // the first exam day comes after the last one.
+      const badRange = await search(leader, '?exam_from=2099-12-20&exam_to=2099-12-01').expect(400);
+      expect(badRange.body).toEqual(errorBody(400, EXAM_RANGE_INVALID_MESSAGE));
+
+      // a word can never be an id. every error names the field in snake_case.
+      const badId = await search(leader, '?subject_id=abc').expect(400);
+      expect(badId.body.message).toBe('Validation failed');
+      const fields = (badId.body.errors as { field: string }[]).map((error) => error.field);
+      expect(fields.length).toBeGreaterThan(0);
+      expect(fields.every((field) => field === 'subject_id')).toBe(true);
+
+      // safety: a key the search does not list is refused, so nobody can ask for removed groups.
+      const unknownKey = await search(leader, '?status=removed').expect(400);
+      expect(unknownKey.body).toEqual({
+        status_code: 400,
+        message: 'Validation failed',
+        errors: [{ field: 'status', message: 'property status should not exist' }],
+      });
     });
   });
 

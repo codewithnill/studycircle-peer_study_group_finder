@@ -1,6 +1,7 @@
-// import type: the person shape, the two dto shapes, and the service shape. only types are borrowed here.
+// import type: the person shape, the three dto shapes, and the service shape. only types are borrowed here.
 import type { AuthUser } from '../auth/decorators/current-user.decorator';
 import type { CreateGroupDto } from './dto/create-group.dto';
+import type { SearchGroupsDto } from './dto/search-groups.dto';
 import type { UpdateGroupDto } from './dto/update-group.dto';
 import type { GroupsService } from './groups.service';
 // import: the fixed role words, so the made-up person has a real role.
@@ -19,6 +20,11 @@ function makeController() {
     createGroup: (...args: unknown[]) => {
       calls.push(['createGroup', ...args]);
       return Promise.resolve({ id: 1 });
+    },
+    // the fake search gives back a made-up page, so the test can check that the controller returns it unchanged.
+    searchGroups: (...args: unknown[]) => {
+      calls.push(['searchGroups', ...args]);
+      return Promise.resolve({ items: [], meta: { page: 1, limit: 10, total: 0, totalPages: 0 } });
     },
     getGroup: (...args: unknown[]) => {
       calls.push(['getGroup', ...args]);
@@ -42,6 +48,19 @@ describe('GroupsController', () => {
 
     await expect(controller.createGroup(USER, dto)).resolves.toEqual({ id: 1 });
     expect(calls).toEqual([['createGroup', 7, dto]]);
+  });
+
+  // the whole checked query reaches the service as one object, and the page comes back unchanged.
+  // the search shows the same groups to every logged-in student, so no person id is passed.
+  it('passes the whole search query to the service', async () => {
+    const { controller, calls } = makeController();
+    const dto = { subjectId: 2, sort: 'exam_soonest', page: '2' } as SearchGroupsDto;
+
+    await expect(controller.searchGroups(dto)).resolves.toEqual({
+      items: [],
+      meta: { page: 1, limit: 10, total: 0, totalPages: 0 },
+    });
+    expect(calls).toEqual([['searchGroups', dto]]);
   });
 
   // the group id from the address and the viewer's id both reach the service.
