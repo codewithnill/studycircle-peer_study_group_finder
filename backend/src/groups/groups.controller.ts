@@ -1,13 +1,15 @@
 // imports: the decorators for the controller, the routes, and the request parts.
-import { Body, Controller, Get, Param, Patch, Post } from '@nestjs/common';
+// "Query" reads the part of the address after "?", like ?subject_id=5&page=2.
+import { Body, Controller, Get, Param, Patch, Post, Query } from '@nestjs/common';
 // import: "Throttle" sets a rate limit for one route, in place of the default 100 per minute.
 import { Throttle } from '@nestjs/throttler';
 // import: the decorator that gives the logged-in person, and its type.
 import { AuthUser, CurrentUser } from '../auth/decorators/current-user.decorator';
 // import: the safe id pipe. it turns an id from the address into a number, or gives 404.
 import { ParseIdPipe } from '../common/pipes/parse-id.pipe';
-// import: the two input shapes. they are classes, so the validation pipe can check the body against their rules.
+// import: the three input shapes. they are classes, so the validation pipe can check the input against their rules.
 import { CreateGroupDto } from './dto/create-group.dto';
+import { SearchGroupsDto } from './dto/search-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 // import: the 404 message the id pipe uses for a bad group id.
 import { GROUP_NOT_FOUND_MESSAGE } from './groups.constants';
@@ -34,6 +36,17 @@ export class GroupsController {
   // safety: the leader id comes from the guard and never from the body.
   createGroup(@CurrentUser() user: AuthUser, @Body() dto: CreateGroupDto) {
     return this.groups.createGroup(user.userId, dto);
+  }
+
+  // searches for groups and gives back one page of group cards with a "meta" block.
+  // @Get() with no name answers to GET /api/v1/groups, for example GET /api/v1/groups?subject_id=5&page=2.
+  // it uses the default limit of 100 calls per minute, which is enough for a person typing in a search box.
+  @Get()
+  // @Query() hands over the whole checked query as one dto (api shape rules, section 5, rule 5).
+  // safety: the whole query is taken at once and never one key by name, so the key change and the checks always run.
+  // no login data is passed, because the search shows the same groups to every logged-in student.
+  searchGroups(@Query() dto: SearchGroupsDto) {
+    return this.groups.searchGroups(dto);
   }
 
   // gives one group page, with seats left and the viewer's own role.

@@ -2,13 +2,14 @@
 import { plainToInstance } from 'class-transformer';
 // import: "validate" runs every check decorator on a dto object and gives back the list of failed fields.
 import { validate } from 'class-validator';
-// import: the two input shapes under test.
+// import: the three input shapes under test.
 import { CreateGroupDto } from './create-group.dto';
+import { SearchGroupsDto } from './search-groups.dto';
 import { UpdateGroupDto } from './update-group.dto';
 
 // builds a dto from a plain body and gives back the names of the fields that failed, sorted a to z.
 // an empty list means the body passed every check.
-// "new () => T" means "a class that can be created with new", so the helper works for both dtos.
+// "new () => T" means "a class that can be created with new", so the helper works for every dto.
 async function failedFields<T extends object>(dtoClass: new () => T, body: object): Promise<string[]> {
   const dto = plainToInstance(dtoClass, body);
   const errors = await validate(dto);
@@ -79,6 +80,7 @@ describe('CreateGroupDto', () => {
   });
 
   // a subject id sent as text, like "5", is refused. the form must send a real number.
+  // note: this is the body rule. the search query is different, because every value in the address is text.
   it('refuses a subject id written as text', async () => {
     expect(await failedFields(CreateGroupDto, { ...VALID_CREATE, subjectId: '5' })).toEqual(['subjectId']);
   });
@@ -120,5 +122,83 @@ describe('UpdateGroupDto', () => {
   it('uses the same size limits as the create form', async () => {
     expect(await failedFields(UpdateGroupDto, { maxSize: 1 })).toEqual(['maxSize']);
     expect(await failedFields(UpdateGroupDto, { maxSize: 30 })).toEqual([]);
+  });
+});
+
+// the search query. every value is text here, because values in the address always arrive as text.
+describe('SearchGroupsDto', () => {
+  // a search with no filters is allowed. it shows every group that may appear in search.
+  it('accepts an empty query', async () => {
+    expect(await failedFields(SearchGroupsDto, {})).toEqual([]);
+  });
+
+  // a whole number written as text becomes a real number, so the service can pass it straight to prisma.
+  it('turns "5" into the number 5 for subject_id and level_id', async () => {
+    const dto = plainToInstance(SearchGroupsDto, { subjectId: '5', levelId: '2' });
+    expect(dto.subjectId).toBe(5);
+    expect(dto.levelId).toBe(2);
+    expect(await failedFields(SearchGroupsDto, { subjectId: '5', levelId: '2' })).toEqual([]);
+  });
+
+  // anything that is not a plain whole number from 1 to the largest id is refused.
+  // safety: a too-big number must be refused here, before it can reach the database and cause a 500 error.
+  it('refuses a bad subject id', async () => {
+    for (const bad of ['abc', '5.5', '-1', '0', '2147483648', '99999999999']) {
+      expect(await failedFields(SearchGroupsDto, { subjectId: bad })).toEqual(['subjectId']);
+    }
+  });
+
+  // a repeated key, like ?subject_id=1&subject_id=2, arrives as a list. a list is not a whole number, so it is refused.
+  it('refuses a repeated subject id', async () => {
+    expect(await failedFields(SearchGroupsDto, { subjectId: ['1', '2'] })).toEqual(['subjectId']);
+  });
+
+  // a form sends "" for a box or dropdown that was left empty. "" must mean "no filter", not an error.
+  it('treats an empty value as no filter', async () => {
+    const body = { q: '   ', subjectId: '', levelId: '', mode: '', location: '', examFrom: '', examTo: '', sort: '' };
+    const dto = plainToInstance(SearchGroupsDto, body);
+    expect(dto.q).toBeNull();
+    expect(dto.subjectId).toBeUndefined();
+    expect(dto.mode).toBeUndefined();
+    expect(dto.sort).toBeUndefined();
+    expect(await failedFields(SearchGroupsDto, body)).toEqual([]);
+  });
+
+  // spaces at the ends of the search text are removed.
+  it('trims the search text', async () => {
+    const dto = plainToInstance(SearchGroupsDto, { q: '  graphs  ' });
+    expect(dto.q).toBe('graphs');
+  });
+
+  // the search text has a length limit, so a huge text cannot slow down the database.
+  it('refuses search text longer than 100 characters', async () => {
+    expect(await failedFields(SearchGroupsDto, { q: 'a'.repeat(100) })).toEqual([]);
+    expect(await failedFields(SearchGroupsDto, { q: 'a'.repeat(101) })).toEqual(['q']);
+  });
+
+  // only the two fixed mode words are allowed, the same as the create form.
+  it('accepts online and in_person, and refuses any other mode', async () => {
+    expect(await failedFields(SearchGroupsDto, { mode: 'online' })).toEqual([]);
+    expect(await failedFields(SearchGroupsDto, { mode: 'in_person' })).toEqual([]);
+    expect(await failedFields(SearchGroupsDto, { mode: 'hybrid' })).toEqual(['mode']);
+  });
+
+  // the two exam days must be real days written as YYYY-MM-DD.
+  it('accepts only real YYYY-MM-DD exam days', async () => {
+    expect(await failedFields(SearchGroupsDto, { examFrom: '2026-12-01', examTo: '2026-12-31' })).toEqual([]);
+    expect(await failedFields(SearchGroupsDto, { examFrom: '2026-02-30' })).toEqual(['examFrom']);
+    expect(await failedFields(SearchGroupsDto, { examTo: '31-12-2026' })).toEqual(['examTo']);
+  });
+
+  // only the two sort words from the plan are allowed.
+  it('accepts newest and exam_soonest, and refuses any other sort', async () => {
+    expect(await failedFields(SearchGroupsDto, { sort: 'newest' })).toEqual([]);
+    expect(await failedFields(SearchGroupsDto, { sort: 'exam_soonest' })).toEqual([]);
+    expect(await failedFields(SearchGroupsDto, { sort: 'oldest' })).toEqual(['sort']);
+  });
+
+  // page and limit are never refused here. the paging helper fixes a bad value later (api shape rules, section 4).
+  it('never refuses page or limit', async () => {
+    expect(await failedFields(SearchGroupsDto, { page: 'abc', limit: '-5' })).toEqual([]);
   });
 });

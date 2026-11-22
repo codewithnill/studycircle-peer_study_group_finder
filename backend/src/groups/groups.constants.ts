@@ -30,3 +30,6 @@ export const EXAM_DATE_IN_PAST_MESSAGE = 'The exam date cannot be in the past';
 
 // 409: the new size is smaller than the number of people already inside.
 export const SIZE_BELOW_MEMBERS_MESSAGE = 'The group already has more members than this size';
+
+// 400: the search asked for exam days where the first day comes after the last day, so nothing could ever match.
+export const EXAM_RANGE_INVALID_MESSAGE = 'The first exam day cannot be after the last exam day';

@@ -9,7 +9,7 @@ import {
 } from '@nestjs/common';
 // import: prismaservice is the one shared database connection. nestjs hands it in.
 import { PrismaService } from '../prisma/prisma.service';
-// import: "Prisma" gives the type tools and the transaction levels.
+// import: "Prisma" gives the type tools, the transaction levels, and the search mode words.
 // the other four hold the fixed words from the schema.
 // safety: the fixed words come from the generated client and are never typed by hand, so a typo cannot create a wrong status.
 import {
@@ -19,14 +19,19 @@ import {
   Mode,
   Prisma,
 } from '../generated/prisma/client';
+// import: the paging helper. it cleans "page" and "limit", and wraps a list with its meta block.
+// "PaginatedResult" is the box the response interceptor looks for to add "meta" to the reply.
+import { getPaginationParams, paginated, PaginatedResult } from '../common/pagination/pagination';
 // import: two messages that already exist in the users module. they are imported, never typed a second time.
 import { NOTHING_TO_UPDATE_MESSAGE, SUBJECT_NOT_FOUND_MESSAGE } from '../users/users.constants';
-// import: the two input shapes. the validation pipe has already checked each field when they arrive here.
+// import: the three input shapes. the validation pipe has already checked each field when they arrive here.
 import { CreateGroupDto } from './dto/create-group.dto';
+import { SearchGroupsDto } from './dto/search-groups.dto';
 import { UpdateGroupDto } from './dto/update-group.dto';
 // import: the group messages.
 import {
   EXAM_DATE_IN_PAST_MESSAGE,
+  EXAM_RANGE_INVALID_MESSAGE,
   GROUP_NOT_FOUND_MESSAGE,
   LEADER_ONLY_MESSAGE,
   LEVEL_NOT_FOUND_MESSAGE,
@@ -59,6 +64,29 @@ export const GROUP_DETAILS_SELECT = {
 // the type of one row from the query above. it is built from the select, so the two can never disagree.
 type GroupDetailsRow = Prisma.GroupGetPayload<{ select: typeof GROUP_DETAILS_SELECT }>;
 
+// the fields of one group card in the search results. it is a smaller version of the group page.
+// safety: the same private fields are left out as on the group page (is_flagged, institution_id, deleted_at, emails).
+// the description and the status are left out too. the description can be long, so a page of 50 cards stays small.
+// the status is always "active" in search, so sending it would add nothing.
+export const GROUP_CARD_SELECT = {
+  id: true,
+  title: true,
+  topic: true,
+  examDate: true,
+  mode: true,
+  location: true,
+  maxSize: true,
+  createdAt: true,
+  subject: { select: { id: true, name: true } },
+  level: { select: { id: true, name: true } },
+  // safety: only the leader's id and name, the same as on the group page.
+  leader: { select: { id: true, name: true } },
+  _count: { select: { members: { where: { status: GroupMemberStatus.active } } } },
+} satisfies Prisma.GroupSelect;
+
+// the type of one row from the card query. it is built from the select, so the two can never disagree.
+type GroupCardRow = Prisma.GroupGetPayload<{ select: typeof GROUP_CARD_SELECT }>;
+
 // a small { id, name } pair, used for the subject, the level, and the leader.
 export interface IdName {
   id: number;
@@ -89,6 +117,27 @@ export interface GroupDetails {
   // the role of the person who asked: "leader", "member", or null for someone who is not inside.
   // the frontend uses it to show an "Edit" button or a "Join" button.
   myRole: GroupMemberRole | null;
+}
+
+// the reply shape of one group card in the search results.
+// "days to exam" is not sent. the frontend works it out from exam_date with the student's own local day,
+// because the server clock (utc) can be one day behind bangladesh late at night.
+export interface GroupCard {
+  id: number;
+  title: string;
+  topic: string | null;
+  // the exam date as "YYYY-MM-DD", or null for a group with no exam.
+  examDate: string | null;
+  mode: Mode;
+  location: string | null;
+  maxSize: number;
+  memberCount: number;
+  // how many more people can join. a full group still shows, with 0 here, so the student can see it exists.
+  seatsLeft: number;
+  createdAt: Date;
+  subject: IdName;
+  level: IdName | null;
+  leader: IdName;
 }
 
 // turns a "YYYY-MM-DD" text into a date at midnight utc. the exam_date column keeps only the day.
@@ -134,9 +183,30 @@ function toGroupDetails(row: GroupDetailsRow, myRole: GroupMemberRole | null): G
   };
 }
 
+// turns one card row into the card reply shape. every field is written out by hand, for the same reason as above.
+function toGroupCard(row: GroupCardRow): GroupCard {
+  const memberCount = row._count.members;
+  return {
+    id: row.id,
+    title: row.title,
+    topic: row.topic,
+    examDate: toDateOnly(row.examDate),
+    mode: row.mode,
+    location: row.location,
+    maxSize: row.maxSize,
+    memberCount,
+    // Math.max keeps it at 0 even if the numbers were ever out of step.
+    seatsLeft: Math.max(0, row.maxSize - memberCount),
+    createdAt: row.createdAt,
+    subject: row.subject,
+    level: row.level,
+    leader: row.leader,
+  };
+}
+
 // @Injectable() tells nestjs that this class can be created by nestjs and given to other classes (dependency injection).
 @Injectable()
-// this service owns creating, reading, and editing groups.
+// this service owns creating, reading, editing, and searching groups.
 // join requests, leaving, and handing over leadership come in week 5.
 export class GroupsService {
   // the constructor receives the database connection. "private" also saves it as this.prisma.
@@ -221,6 +291,91 @@ export class GroupsService {
     }
 
     return toGroupDetails(row, membership?.role ?? null);
+  }
+
+  // finds groups that match the student's filters, and gives back one page of group cards.
+  // only groups that are open (active), not deleted, and whose exam has not passed may appear.
+  // an empty page is a normal answer, not an error. the frontend then shows a "Create your own group" button.
+  async searchGroups(dto: SearchGroupsDto): Promise<PaginatedResult<GroupCard>> {
+    // the paging numbers. a bad or missing "page" or "limit" is fixed here, never refused.
+    const params = getPaginationParams({ page: dto.page, limit: dto.limit });
+
+    // the one rule the dto cannot check alone: the first exam day must not come after the last one.
+    // "YYYY-MM-DD" texts sort like dates, so a plain text compare is enough.
+    if (dto.examFrom !== undefined && dto.examTo !== undefined && dto.examFrom > dto.examTo) {
+      throw new BadRequestException(EXAM_RANGE_INVALID_MESSAGE);
+    }
+
+    // the list of extra conditions. every one of them must be true for a group to appear ("AND").
+    const conditions: Prisma.GroupWhereInput[] = [
+      // hide groups whose exam has passed. a group with no exam date (a skill group) always stays visible.
+      // this is done inside the query, as the plan says, so no timed job is needed.
+      { OR: [{ examDate: null }, { examDate: { gte: fromDateOnly(todayUtc()) } }] },
+    ];
+
+    // the main search text: look in the title or the topic.
+    // "contains" finds the words anywhere in the text. "insensitive" means "graph" also finds "Graph".
+    // safety: prisma sends the text to postgres as a separate value, never glued into the sql, so it cannot run as code.
+    if (dto.q) {
+      conditions.push({
+        OR: [
+          { title: { contains: dto.q, mode: Prisma.QueryMode.insensitive } },
+          { topic: { contains: dto.q, mode: Prisma.QueryMode.insensitive } },
+        ],
+      });
+    }
+
+    // the location search, for example "Dhaka". it works the same way as the main search text.
+    if (dto.location) {
+      conditions.push({ location: { contains: dto.location, mode: Prisma.QueryMode.insensitive } });
+    }
+
+    // the exam day range. "gte" means "on or after", and "lte" means "on or before".
+    // when a range is given, groups with no exam date drop out, because they have no day to compare.
+    if (dto.examFrom !== undefined || dto.examTo !== undefined) {
+      conditions.push({
+        examDate: {
+          gte: dto.examFrom === undefined ? undefined : fromDateOnly(dto.examFrom),
+          lte: dto.examTo === undefined ? undefined : fromDateOnly(dto.examTo),
+        },
+      });
+    }
+
+    // the full filter. a field whose value is undefined is skipped by prisma, so a missing filter means "any".
+    const where: Prisma.GroupWhereInput = {
+      deletedAt: null,
+      // only open groups appear in search. closed, archived, and removed groups are hidden (fixed values file, A4).
+      status: GroupStatus.active,
+      subjectId: dto.subjectId,
+      levelId: dto.levelId,
+      // this "mode" is the group's mode (online or in_person). the "mode" inside "contains" above is a different word for case.
+      mode: dto.mode,
+      AND: conditions,
+    };
+
+    // the order of the results. the second rule (id) breaks ties, so two groups with the same date
+    // always come in the same order, and paging never shows one group twice or skips one.
+    // "nulls: last" puts groups with no exam date at the end of the "exam soonest" list.
+    const orderBy: Prisma.GroupOrderByWithRelationInput[] =
+      dto.sort === 'exam_soonest'
+        ? [{ examDate: { sort: Prisma.SortOrder.asc, nulls: Prisma.NullsOrder.last } }, { id: Prisma.SortOrder.asc }]
+        : [{ createdAt: Prisma.SortOrder.desc }, { id: Prisma.SortOrder.desc }];
+
+    // two reads in one transaction: the total count and the page of rows.
+    // running them together means both see the same data, so the total and the page always agree.
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.group.count({ where }),
+      this.prisma.group.findMany({
+        where,
+        orderBy,
+        skip: params.skip,
+        take: params.take,
+        select: GROUP_CARD_SELECT,
+      }),
+    ]);
+
+    // turn each row into a card and wrap the page with its meta block.
+    return paginated(rows.map(toGroupCard), params, total);
   }
 
   // changes a group's details. only the leader may do this. gives back the new group page.
